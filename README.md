@@ -1,7 +1,6 @@
 # jax_GNN
 
-A clean and modular **Graph Neural Network (GNN)** training framework built using **JAX**, **Flax/NNX**, and **jraphx**.  
-This project includes a working implementation of **GATv2** based on the official `jraphx` library by [DBraun](https://github.com/DBraun/jraphx), and supports fast JIT-compiled training pipelines for graph classification tasks.
+A clean and modular **Graph Neural Network (GNN)** training framework built using **JAX**, **Flax/NNX**, and **jraphx**. This project includes a working implementation of **GATv2** based on the official `jraphx` library by [DBraun](https://github.com/DBraun/jraphx), and supports fast JIT-compiled training pipelines for graph classification tasks.
 
 ---
 
