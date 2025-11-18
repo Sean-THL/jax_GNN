@@ -1,0 +1,9 @@
+jraphx==0.0.4
+jax[cuda13]
+matplotlib
+jaxlib
+orbax-checkpoint==0.11.28
+optax==0.2.5
+orjson
+scikit-learn
+tqdm
