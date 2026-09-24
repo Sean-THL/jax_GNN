@@ -1,55 +1,63 @@
-# jax_GNN
+# Graph robustness classifier
 
-A clean and modular **Graph Neural Network (GNN)** training framework built using **JAX**, **Flax/NNX**, and **jraphx**. This project includes a working implementation of **GATv2** based on the official `jraphx` library by [DBraun](https://github.com/DBraun/jraphx), and supports fast JIT-compiled training pipelines for graph classification tasks.
+This project trains a JAX/Flax graph attention network to classify the
+`robustness` value in `testing_data.json`. The file contains 100 graphs with
+9–47 nodes. The split is fixed at 70 training, 10 validation, and 20 held-out
+test graphs.
 
----
+## Set up
 
-## Features
+Use Python 3.12 and run these commands from this directory:
 
-- **GATv2 layer** (attention-based GNN) from [this work](https://arxiv.org/abs/2105.14491) implemented via `jraphx.nn.GATv2Conv`
-- Fully JAX/NNX-compatible model class with modular design
-- Efficient graph batching using `jraphx.data.Batch`
-- JIT-compiled training & evaluation steps
-- Early stopping with validation monitoring
-- Checkpointing through Orbax (`StandardCheckpointer`)
-- Clean separation of dataset processing, model definition, and training script
-- Contains a dataset of 100 randomly generated graphs of sizes from 1 to 50 nodes with r-robustness (defined in [here](https://ieeexplore.ieee.org/document/6481629)) 
-
----
-
-## Requirements
-Your environment must use:
-```
-Python 3.12.3
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+unset PYTHONPATH  # useful if a ROS environment is active
+python -m pip install -r requirements.txt
 ```
 
-Install dependencies:
+The requirements install CPU JAX. NVIDIA GPU users should follow the current
+[JAX installation guide](https://docs.jax.dev/en/latest/installation.html) for
+their driver and CUDA version.
 
-```
-pip install -r requirements.txt
-```
+## Run the pipeline
 
-## Project Structure
-```
-jax_GNN/
-├── jax_dataset.py       # Data loading and graph preprocessing
-├── jax_gnn.py           # GATv2-style GNN implementation
-├── jax_train.py         # Training script
-├── jax_test.py          # Inference / testing script
-├── testing_data.json    # raw dataset that contains 100 graphs with computed r-robustness
-├── pure_dict_state      # saved model parameters
-├── pure_dict_optimizer  # saved optimizer parameters 
-├── requirements.txt
-└── README.md
+```bash
+python jax_train_new.py --epochs 1  # quick end-to-end check
+python jax_test_new.py
+python jax_train_new.py             # full training, up to 100 epochs
+python jax_test_new.py              # final held-out evaluation
 ```
 
-## Example Dataset
+Training stops after 15 epochs without a validation-loss improvement. It saves
+the best model to `checkpoints/model.msgpack`; the test script loads that file.
+The 1-epoch run writes a temporary model for the quick check, and the full run
+replaces it.
 
-The repository includes testing_data.json, which contains 100 randomly generated graphs. Each graph entry includes:
+Each graph uses its actual nodes and directed edges. Node features are degree
+and a constant 1; edge features are a constant 1. `Batch.from_data_list`
+combines graphs for training. The model has three `GATConv` layers, mean
+pooling, and a multilayer classifier with output classes 0–25.
 
-- Node counts: ranging from 1 to 50 
-- Degree sequence: the degrees of all nodes in the graph
-- Directed edges: list of edges representing the graph connectivity
-- r-robustness: precomputed robustness value for the graph
-  
-This dataset is used to demonstrate training and evaluation of the GNN.
+The reported test accuracy comes from only 20 graphs and may vary substantially
+with a different dataset or split. The supplied graph labels were precomputed;
+this repository does not implement the r-robustness calculation itself.
+
+The original `jax_dataset.py`, `jax_gnn.py`, `jax_train.py`, and `jax_test.py`
+remain available unchanged. The `*_new.py` files contain the updated pipeline.
+
+## Run the fixed original pipeline
+
+This variant retains the original 50-node/2,500-edge padding, 80/20 split,
+three-layer GAT, and 500-epoch limit. It fixes checkpoint consistency and test
+batching, and saves the best validation checkpoint separately:
+
+```bash
+python jax_train_old_fixed.py
+python jax_test_old_fixed.py
+```
+
+Its 20 evaluation graphs are also used for early stopping, matching the
+original experiment design. Its reported metrics therefore are not from an
+independent held-out test set. The checkpoint is
+`checkpoints/old_fixed_model.msgpack`.
