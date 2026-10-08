@@ -17,6 +17,15 @@ from time import perf_counter
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
+from jax_conformal import (
+    calibrate_underbound,
+    coverage,
+    fit_lac,
+    lac_prediction_sets,
+    predict_underbounds,
+    set_members,
+)
+
 PROJECT = Path(__file__).resolve().parent
 
 
@@ -163,6 +172,17 @@ def eval_step(model, *arrays):
     return loss_fn(model, *arrays)
 
 
+def predict_probabilities(model, records, batch_size, representation):
+    """Run inference once and return host probabilities and integer targets."""
+    probabilities, targets = [], []
+    for batch, count in device_batches(records, batch_size, representation):
+        model.batchsize = count
+        logits = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+        probabilities.append(np.asarray(jax.nn.softmax(logits, axis=-1)))
+        targets.append(np.asarray(batch.y).reshape(-1))
+    return np.concatenate(probabilities), np.concatenate(targets)
+
+
 def train_main(representation, convolution):
     parser = argparse.ArgumentParser(description=f"Train {representation} {convolution}")
     parser.add_argument("--epochs", type=int, default=500 if representation == "original" else 100)
@@ -234,9 +254,14 @@ def test_main(representation, convolution):
     parser.add_argument("--test-data", type=Path, default=PROJECT / "testing_data.json")
     parser.add_argument("--checkpoint", type=Path, default=checkpoint_path(representation, convolution))
     parser.add_argument("--batch-size", type=int, default=10)
+    parser.add_argument("--conformal-coverage", type=float,
+                        help="Desired marginal coverage for conformal sets and lower bounds")
+    parser.add_argument("--calibration-data", type=Path, default=PROJECT / "calib_data.json")
     args = parser.parse_args()
     if args.batch_size < 1:
         parser.error("batch-size must be positive")
+    if args.conformal_coverage is not None and not 0 < args.conformal_coverage < 1:
+        parser.error("conformal-coverage must be between zero and one")
     if not args.checkpoint.exists():
         parser.error(f"No checkpoint at {args.checkpoint}; run the corresponding training script first")
     meta_path = args.checkpoint.with_suffix(".json")
@@ -250,13 +275,8 @@ def test_main(representation, convolution):
     nnx.replace_by_pure_dict(state, restored)
     nnx.update(model, state)
     model.eval()
-    predictions, targets = [], []
-    for batch, count in device_batches(records, args.batch_size, representation):
-        model.batchsize = count
-        logits = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
-        predictions.extend(np.asarray(jnp.argmax(logits, axis=-1)).tolist())
-        targets.extend(np.asarray(batch.y).reshape(-1).tolist())
-    predicted, actual = np.asarray(predictions), np.asarray(targets)
+    probabilities, actual = predict_probabilities(model, records, args.batch_size, representation)
+    predicted = probabilities.argmax(axis=-1)
     error = actual - predicted
     print(f"Variant: {representation} / {convolution}; test graphs: {len(records)}")
     print("Exact robustness accuracy:", float(np.mean(predicted == actual)))
@@ -264,3 +284,70 @@ def test_main(representation, convolution):
     print("Average deviation (actual - prediction):", float(np.mean(error)))
     print("Accuracy within ±1:", float(np.mean(np.abs(error) <= 1)))
     print("Accuracy within ±2:", float(np.mean(np.abs(error) <= 2)))
+
+    if args.conformal_coverage is not None:
+        calibration = prepare_records(read_records(args.calibration_data))
+        calibration_probabilities, calibration_labels = predict_probabilities(
+            model, calibration, args.batch_size, representation
+        )
+        alpha = 1.0 - args.conformal_coverage
+        threshold = fit_lac(calibration_probabilities, calibration_labels, alpha)
+        calibration_sets = lac_prediction_sets(calibration_probabilities, threshold)
+        test_sets = lac_prediction_sets(probabilities, threshold)
+        calibration_covered = coverage(calibration_sets, calibration_labels)
+        test_covered = coverage(test_sets, actual)
+        test_sizes = test_sets.sum(axis=1)
+        lower_endpoints = np.argmax(test_sets, axis=1)
+
+        underbound_quantile = calibrate_underbound(
+            calibration_probabilities.argmax(axis=1),
+            calibration_labels,
+            args.conformal_coverage,
+        )
+        calibration_lower_bounds = predict_underbounds(
+            calibration_probabilities.argmax(axis=1),
+            underbound_quantile,
+            calibration_probabilities.shape[1],
+        )
+        calibration_lower_covered = calibration_labels >= calibration_lower_bounds
+        lower_bounds = predict_underbounds(predicted, underbound_quantile, probabilities.shape[1])
+        lower_covered = actual >= lower_bounds
+
+        print(f"\nConformal results (desired coverage {args.conformal_coverage:.1%})")
+        print(f"Calibration graphs: {len(calibration_labels)}; LAC threshold: {threshold:.6f}")
+        print("Calibration labels inside LAC sets:",
+              f"{int(calibration_covered.sum())}/{len(calibration_covered)} "
+              f"({calibration_covered.mean():.1%})")
+        print("Test labels inside LAC sets:",
+              f"{int(test_covered.sum())}/{len(test_covered)} ({test_covered.mean():.1%})")
+        print("Mean LAC set size:", float(test_sizes.mean()))
+        print("LAC-set lower-endpoint coverage:", float(np.mean(actual >= lower_endpoints)))
+        print("One-sided score: predicted robustness - actual robustness")
+        print(f"One-sided conformal quantile: {underbound_quantile:g}")
+        print("Calibration labels inside one-sided sets [lower bound, 25]:",
+              f"{int(calibration_lower_covered.sum())}/{len(calibration_lower_covered)} "
+              f"({calibration_lower_covered.mean():.1%})")
+        print("One-sided conformal lower-bound coverage:",
+              f"{int(lower_covered.sum())}/{len(lower_covered)} ({lower_covered.mean():.1%})")
+
+        unsupported = sorted(set(actual.tolist()) - set(calibration_labels.tolist()))
+        if unsupported:
+            print("Warning: test labels absent from calibration data:", unsupported)
+
+        missed = np.flatnonzero(~test_covered)
+        if len(missed):
+            print("Test examples outside the LAC set:")
+            for index in missed:
+                print(f"  index {index}: actual={actual[index]}, point={predicted[index]}, "
+                      f"set={set_members(test_sets[index])}")
+        else:
+            print("Every test label lies inside its LAC prediction set.")
+
+        lower_missed = np.flatnonzero(~lower_covered)
+        if len(lower_missed):
+            print("Test examples outside the one-sided set [lower bound, 25]:")
+            for index in lower_missed:
+                print(f"  index {index}: actual={actual[index]}, point={predicted[index]}, "
+                      f"lower_bound={lower_bounds[index]}")
+        else:
+            print("Every test label lies inside its one-sided set [lower bound, 25].")

@@ -3,8 +3,8 @@
 Run commands from `jax_GNN`. The original GAT and GATv2 entry points follow the
 historical 80/20 split of `testing_data.json`. The new GAT and GATv2 entry
 points use `training_data.json` (90/10 train/validation split, seed 42) and
-evaluate on all graphs in the separate `testing_data.json`. `calib_data.json`
-is unused. The target is `robustness`, with integer classes 0–25. The new
+evaluate on all graphs in the separate `testing_data.json`. The target is
+`robustness`, with integer classes 0–25. The new
 loader rounds labels within 0.001 of an integer (for example, 20.999977
 becomes 21) and rejects labels outside this tolerance. Source JSON files are
 not modified.
@@ -119,7 +119,19 @@ python jax_train_new_gatv2.py --epochs 100 --patience 15 --batch-size 10 --learn
 
 Other new-variant options: `--validation-fraction`, `--seed`, `--train-data`,
 `--checkpoint`, and `--no-jit`. Their test scripts accept `--test-data`,
-`--checkpoint`, and `--batch-size`. Historical original train scripts accept
+`--checkpoint`, and `--batch-size`. Add `--conformal-coverage 0.9` to calibrate
+90% one-sided robustness lower bounds and supplementary LAC prediction sets using
+`calib_data.json`; use `--calibration-data` to select another independent
+calibration file. For example:
+
+```bash
+python jax_test_new.py --conformal-coverage 0.9
+```
+
+The conformal report shows calibration and test-set coverage, mean prediction-set
+size, and details for every test label outside its prediction set. Coverage is
+marginal and requires calibration and future graphs to be exchangeable.
+Historical original train scripts accept
 `--epochs`, `--patience`, `--batch-size`, and `--checkpoint`; their test scripts
 accept `--checkpoint` and `--batch-size` (which defaults to the saved value).
 Paths supplied through flags are relative to your current working directory;
