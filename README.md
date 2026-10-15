@@ -9,6 +9,22 @@ The supplied labels are precomputed integer classes from 0 through 25. This
 repository trains and evaluates classifiers; it does not calculate
 r-robustness labels from first principles.
 
+## Code layout
+
+| Folder | Purpose |
+| --- | --- |
+| `gnn/` | Current integrated dataset, batching, training, inference, and GAT/GATv2 models |
+| `conformal/` | CP scores, prediction sets, and lower bounds |
+| `planning/` | SVGD prototype, [runnable demo](planning/README.md), visualization, and example scenario |
+| `legacy/` | Historical padded pipeline, fixed original baseline, and prefetch-era variant |
+| `tests/` | Unit and integration checks |
+
+The top-level `jax_train_*.py`, `jax_test_*.py`, and `run_svgd_experiment.py`
+remain command entry points. Former top-level implementation module names remain
+import shims so existing notebooks and shell scripts continue to work. Data and
+checkpoints remain in the repository root. The old planner documentation,
+diagram, and demo paths also point to their maintained files under `planning/`.
+
 ## Highlights
 
 - Four supported model configurations: historical and integrated pipelines,
@@ -222,13 +238,14 @@ required.
 
 | Path | Description |
 | --- | --- |
-| `jax_variants.py` | Integrated training, evaluation, batching, checkpointing, and conformal integration |
-| `jax_historical_baseline.py` | Shared implementation of the historical GAT and GATv2 baselines |
-| `jax_gnn.py`, `jax_gnn_gatv2.py` | Historical padded GAT and GATv2 models |
-| `jax_gnn_new.py`, `jax_gnn_new_gatv2.py` | Compact integrated GAT and GATv2 models |
-| `jax_dataset.py`, `jax_dataset_new.py` | Historical and compact graph construction helpers |
-| `jax_conformal.py` | Conformal prediction sets and one-sided lower bounds |
-| `run_all_variants.sh` | End-to-end comparison using the public entry points |
+| `gnn/variants.py` | Integrated training, evaluation, batching, and checkpointing |
+| `gnn/models/` | Current compact GAT and GATv2 models |
+| `gnn/dataset.py` | Current graph construction helper |
+| `conformal/scores.py` | Conformal prediction sets and one-sided lower bounds |
+| `planning/` | SVGD planner, experiment runner, example scenario, and pipeline diagram |
+| `legacy/` | Historical padded pipeline, fixed original baseline, and older variant |
+| `tests/` | Tests grouped away from runtime modules |
+| `run_all_variants.sh` | End-to-end comparison using public entry points |
 | `run_shared_variants.sh` | Matched-settings comparison using the integrated engine |
 
 ## Notes on performance

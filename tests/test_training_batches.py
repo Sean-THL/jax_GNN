@@ -6,7 +6,7 @@ import jax
 import numpy as np
 import optax
 
-from jax_variants import batches, batch_arrays, loss_fn, model_class, prepare_records, train_step
+from gnn.variants import batches, batch_arrays, loss_fn, model_class, prepare_records, train_step
 
 
 def records():

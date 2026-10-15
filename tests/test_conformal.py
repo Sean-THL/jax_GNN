@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from jax_conformal import (
+from conformal.scores import (
     calibrate_underbound,
     conformal_quantile,
     coverage,

@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GNN + CP + SVGD Multi-Robot Planning — Meeting Brief</title>
+<style>
+  @page { size: Letter; margin: 0.62in 0.68in 0.62in 0.68in; }
+  body { font-family: "Liberation Sans", Arial, sans-serif; color:#182235; font-size:10.5pt; line-height:1.32; }
+  h1 { color:#14395f; font-size:26pt; margin:0 0 8pt 0; }
+  h2 { color:#174a73; font-size:17pt; border-bottom:1.4pt solid #82a9c7; padding-bottom:3pt; margin:17pt 0 8pt; }
+  h3 { color:#245d82; font-size:12.5pt; margin:12pt 0 5pt; }
+  p { margin:5pt 0; }
+  ul, ol { margin:4pt 0 7pt 20pt; padding:0; }
+  li { margin:2pt 0; }
+  table { border-collapse:collapse; width:100%; margin:7pt 0 10pt; }
+  th { background:#dceaf5; color:#153c5c; font-weight:bold; }
+  th, td { border:0.7pt solid #8da5b8; padding:5pt 6pt; vertical-align:top; }
+  code, pre { font-family:"Liberation Mono", monospace; background:#f2f5f7; }
+  code { padding:1pt 2pt; }
+  pre { border:0.7pt solid #b8c5cf; padding:7pt; font-size:8.7pt; white-space:pre-wrap; }
+  .cover { text-align:center; padding-top:100pt; }
+  .subtitle { color:#49657c; font-size:15pt; }
+  .date { margin-top:28pt; color:#607487; }
+  .callout { background:#eef6fb; border-left:5pt solid #3a80ad; padding:8pt 10pt; margin:8pt 0; }
+  .warning { background:#fff3dc; border-left:5pt solid #d19128; padding:8pt 10pt; margin:8pt 0; }
+  .success { background:#eaf6ed; border-left:5pt solid #3c8d55; padding:8pt 10pt; margin:8pt 0; }
+  .small { font-size:9pt; color:#526578; }
+  .equation { text-align:center; font-family:"Liberation Serif", serif; font-size:12pt; margin:8pt 0; }
+  .pagebreak { page-break-before:always; }
+  .keep { page-break-inside:avoid; }
+  .pipeline td { text-align:center; background:#f6f9fb; font-weight:bold; }
+  .arrow { border:none; font-size:14pt; color:#3d6f91; width:4%; }
+  .metric-good { background:#e9f6ec; }
+  .metric-bad { background:#fff0ed; }
+  .footer-note { font-size:8.5pt; color:#5e6b77; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>GNN + Conformal Prediction + SVGD</h1>
+  <p class="subtitle">Multi-Robot Robustness-Aware Trajectory Planning</p>
+  <p class="subtitle">Meeting Brief and Presentation Notes</p>
+  <p class="date">Prepared 15 October 2026</p>
+  <div class="callout" style="text-align:left; margin-top:55pt">
+    <b>Main question:</b> Can a trained New GATv2 model, calibrated with conformal prediction, provide a useful robustness signal inside an SVGD trajectory planner—accurately and quickly enough to improve multi-robot trajectories?
+  </div>
+</div>
+
+<h2 style="page-break-before: always">1. The 30-second explanation</h2>
+
+<p>The professor asked for two connected studies:</p>
+<ol>
+  <li>Improve dataset construction and batching: avoid unnecessary padding; if padding is required by JIT, make it efficient.</li>
+  <li>Integrate the GNN and conformal prediction (CP) into the cost used by SVGD. If SVGD is ineffective or too slow, investigate MPPI or MBD.</li>
+</ol>
+
+<p>The current system has an offline learning stage and an online planning stage:</p>
+
+<table class="pipeline">
+  <tr>
+    <td>Labeled graphs</td><td class="arrow">→</td><td>Train New GATv2</td><td class="arrow">→</td><td>Saved checkpoint</td>
+  </tr>
+  <tr>
+    <td>Calibration graphs</td><td class="arrow">→</td><td>Fit CP correction</td><td class="arrow">→</td><td>Calibrated scorer</td>
+  </tr>
+  <tr>
+    <td>Candidate team trajectories</td><td class="arrow">→</td><td>Graphs at future steps</td><td class="arrow">→</td><td>GATv2 + CP cost</td>
+  </tr>
+  <tr>
+    <td>Trajectory costs</td><td class="arrow">→</td><td>SVGD updates candidates</td><td class="arrow">→</td><td>Selected joint trajectory</td>
+  </tr>
+</table>
+
+<div class="success">
+  <b>Current result:</b> In one synthetic 10-robot scenario, the simple planner selected a trajectory with minimum exact robustness 1, the soft-degree planner selected 0, and the GNN+CP planner selected 2. GNN+CP took 2.276 s versus 0.333 s for the simple planner. This demonstrates integration, but it is not yet evidence of general performance.
+</div>
+
+<div class="warning">
+  <b>Theoretical correction:</b> the demo uses a robustness threshold of 2 only as a placeholder. If the system uses W-MSR under an F-local adversary model, the usual sufficient scalar threshold is r = 2F + 1. For F = 1, the experiment should target r = 3.
+</div>
+
+<h2>2. What was changed in the training pipeline</h2>
+
+<h3>Historical representation</h3>
+<p>Every graph was expanded to 50 node slots and 2,500 edge slots before training. Batches were assembled from graph objects with <code>Batch.from_data_list()</code>. This caused large padded tensors and additional host-side assembly work.</p>
+
+<h3>Current “New” representation</h3>
+<p>Each graph is stored in CPU memory with only its real nodes and edges. When a mini-batch is formed, the real graphs are concatenated. Limited padding is then added to obtain reusable JAX shapes:</p>
+<ul>
+  <li>node capacity is bounded for the batch and includes a disconnected dummy node;</li>
+  <li>edge capacity uses power-of-two buckets to reduce the number of JIT compilations;</li>
+  <li>padding edges point only to the dummy node;</li>
+  <li>padding nodes receive a batch ID outside the real pooling range;</li>
+  <li>a background thread prepares the next host batch while the device processes the current batch.</li>
+</ul>
+
+<p>Padding is still used because JAX normally compiles for array shape. The improvement is that padding occurs at batch construction, with bounded reusable shapes, rather than expanding every stored graph to the global maximum.</p>
+
+<table>
+  <tr><th>Matched GATv2 comparison</th><th>Historical-style padded representation</th><th>New compact representation</th></tr>
+  <tr><td>Dataset and split</td><td colspan="2">Same training_data.json, 178,220 train / 19,803 validation, batch size 32</td></tr>
+  <tr><td>Steady training time per epoch</td><td>about 94.4 s</td><td>about 16.0 s</td></tr>
+  <tr><td>Independent test accuracy</td><td>93%</td><td>88%</td></tr>
+  <tr><td>Interpretation</td><td>Higher accuracy in this run, much slower</td><td>About 5.9× faster, lower accuracy in this run</td></tr>
+</table>
+
+<p class="small">This matched comparison is the useful representation study. Historical scripts trained on only an 80/20 split of testing_data.json and reported the early-stopping subset, so those historical metrics are not directly comparable with the integrated runs.</p>
+
+<div class="pagebreak"></div>
+<h2>3. What is in training_data.json?</h2>
+
+<p>The file contains <b>198,023 independent labeled graphs</b>. It does not contain robot coordinates or trajectories.</p>
+
+<table>
+  <tr><th>Dataset property</th><th>Observed value</th></tr>
+  <tr><td>Number of graphs</td><td>198,023</td></tr>
+  <tr><td>Nodes per graph</td><td>2–49</td></tr>
+  <tr><td>Directed edge entries per graph</td><td>0–2,124; mean about 356</td></tr>
+  <tr><td>Robustness labels</td><td>0–23</td></tr>
+  <tr><td>Robustness-zero graphs</td><td>29,369</td></tr>
+  <tr><td>Near-integer labels normalized when loaded</td><td>838</td></tr>
+</table>
+
+<p>A typical record contains:</p>
+<pre>{
+  "nodes": 29,
+  "edge_index": [[sources...], [targets...]],
+  "degree": [degree_of_node_0, ...],
+  "robustness": 10.0,
+  "membership": [...],
+  "r_robustness": 10.0,
+  "lambda2": 12.97
+}</pre>
+
+<p>The New GATv2 uses only:</p>
+<ul>
+  <li><code>degree</code> to form node features <code>[degree, 1]</code>;</li>
+  <li><code>edge_index</code> to describe graph connectivity;</li>
+  <li><code>robustness</code> as the class label.</li>
+</ul>
+
+<div class="warning">
+  <b>Distribution question:</b> the training file does not explain how graphs were generated from physical positions. The planner currently creates an edge whenever robot distance is below a communication radius. We must verify that this graph-generation rule is consistent with the training-data distribution before treating planner predictions as reliable.
+</div>
+
+<h2>4. GNN input and output</h2>
+
+<p>For one graph, each robot is one node. The model receives:</p>
+<table>
+  <tr><th>Input</th><th>Meaning</th></tr>
+  <tr><td>Node features</td><td>[number of neighbors, 1] for each robot</td></tr>
+  <tr><td>edge_index</td><td>source and destination robot indices for every communication link</td></tr>
+  <tr><td>Edge features</td><td>constant value 1 for each real edge</td></tr>
+  <tr><td>Batch index</td><td>identifies which nodes belong to each graph in a mini-batch</td></tr>
+</table>
+
+<p>The output is 26 class logits for robustness classes 0 through 25. Softmax converts them into class probabilities. The point prediction is the class with the largest probability.</p>
+
+<p>The saved New GATv2 checkpoint was trained with batch size 32 and reached its best validation loss at epoch 20. On 100 independent test graphs:</p>
+<table>
+  <tr><th>Metric</th><th>Result</th></tr>
+  <tr><td>Exact robustness accuracy</td><td>88%</td></tr>
+  <tr><td>Raw prediction ≤ actual robustness</td><td>94%</td></tr>
+  <tr><td>Mean actual − prediction</td><td>0.0</td></tr>
+  <tr><td>Within ±1 class</td><td>100%</td></tr>
+  <tr><td>Within ±2 classes</td><td>100%</td></tr>
+</table>
+
+<div class="pagebreak"></div>
+<h2>5. Conformal prediction</h2>
+
+<p>CP does not train the GNN and does not generate trajectories. It uses a separate labeled calibration set to transform model outputs into uncertainty-aware prediction sets or lower bounds.</p>
+
+<h3>LAC score</h3>
+<div class="equation">s(x,y) = 1 − p(y | x)</div>
+<p>LAC returns a set of plausible robustness classes. For planning, the current implementation uses the smallest member of that set as a lower endpoint.</p>
+
+<h3>One-sided robustness score</h3>
+<div class="equation">s = r̂ − r<sub>actual</sub></div>
+<p>A calibrated quantile q gives the lower bound:</p>
+<div class="equation">r̲ = clip(ceil(r̂ − q), 0, 25)</div>
+
+<p>At desired coverage 90%, the saved checkpoint produced:</p>
+<table>
+  <tr><th>CP result</th><th>Observed result</th></tr>
+  <tr><td>LAC calibration coverage</td><td>901/1,000 = 90.1%</td></tr>
+  <tr><td>LAC test-set coverage</td><td>95/100 = 95%</td></tr>
+  <tr><td>Mean LAC set size</td><td>1.18 classes</td></tr>
+  <tr><td>LAC lower-endpoint coverage</td><td>97%</td></tr>
+  <tr><td>One-sided calibration coverage</td><td>924/1,000 = 92.4%</td></tr>
+  <tr><td>One-sided test lower-bound coverage</td><td>94%</td></tr>
+  <tr><td>One-sided quantile</td><td>0</td></tr>
+</table>
+
+<div class="warning">
+  The calibration data contain no robustness-zero graphs, while the test data do. Also, the one-sided quantile is zero, so the current one-sided “lower bound” equals the GNN point prediction. CP therefore adds no downward correction in the current planner configuration. These results are empirical coverage measurements, not a trajectory-level guarantee.
+</div>
+
+<h2>6. What one SVGD particle means</h2>
+
+<p>In SVGD, a particle is one possible solution. Here, the solution is a complete joint trajectory for the entire robot team:</p>
+
+<div class="equation">Z<sub>k</sub> ∈ R<sup>T × N × 2</sup></div>
+
+<p>where k identifies the candidate trajectory, T is the number of future steps, and N is the number of robots.</p>
+
+<table>
+  <tr><th>Current demo quantity</th><th>Value</th><th>Meaning</th></tr>
+  <tr><td>Robots</td><td>10</td><td>Ten fixed robot identities with fixed starts and goals</td></tr>
+  <tr><td>Future steps</td><td>4</td><td>Four future positions for every robot</td></tr>
+  <tr><td>Candidate trajectories / SVGD particles</td><td>16</td><td>Sixteen alternative joint trajectories for the same ten robots</td></tr>
+  <tr><td>SVGD iterations</td><td>5</td><td>Five simultaneous updates of all sixteen candidates</td></tr>
+</table>
+
+<p>One particle therefore contains 4 × 10 × 2 = 80 coordinate values. Each particle produces four communication graphs—one graph at every future step. The 16 particles are not different robot teams.</p>
+
+<h3>Initial trajectory sampling</h3>
+<p>For each robot, the code first interpolates a straight line between its fixed start and goal:</p>
+<div class="equation">x<sup>line</sup><sub>t,i</sub> = x<sub>0,i</sub> + (t/T)(g<sub>i</sub> − x<sub>0,i</sub>)</div>
+<p>Candidate k is produced by adding seeded Gaussian noise:</p>
+<div class="equation">x<sup>(k)</sup><sub>t,i</sub> = x<sup>line</sup><sub>t,i</sub> + ε<sup>(k)</sup><sub>t,i</sub></div>
+
+<div class="pagebreak"></div>
+<h2>7. How the planner turns a trajectory into graph robustness</h2>
+
+<table class="pipeline">
+  <tr>
+    <td>All robot positions at step t</td><td class="arrow">→</td><td>Edge if distance ≤ radius</td><td class="arrow">→</td><td>Communication graph G<sub>t</sub></td>
+  </tr>
+  <tr>
+    <td>Degrees + edges</td><td class="arrow">→</td><td>New GATv2</td><td class="arrow">→</td><td>Predicted robustness</td>
+  </tr>
+  <tr>
+    <td>Prediction + CP calibration</td><td class="arrow">→</td><td>Lower bound r̲<sub>t</sub></td><td class="arrow">→</td><td>Worst future bound min<sub>t</sub> r̲<sub>t</sub></td>
+  </tr>
+</table>
+
+<p>The GNN does not predict the robots’ positions. SVGD proposes and updates positions; the GNN estimates the robustness of the graphs induced by those positions.</p>
+
+<h2>8. Cost used to update trajectories</h2>
+
+<p>Let x<sub>t,i</sub> be robot i’s proposed position at future step t, x<sub>0,i</sub> its fixed start, g<sub>i</sub> its goal, R the communication radius, d<sub>min</sub> the minimum separation, s<sub>max</sub> the maximum step, and r<sub>req</sub> the required robustness.</p>
+
+<p>The full GNN+CP objective is:</p>
+<div class="equation">
+  C(Z) = C<sub>goal</sub> + C<sub>motion</sub> + C<sub>separation</sub> + C<sub>step</sub> + C<sub>degree</sub> + C<sub>CP</sub>
+</div>
+
+<table>
+  <tr><th>Term</th><th>Implemented form and purpose</th></tr>
+  <tr><td>Goal</td><td>w<sub>g</sub> mean ||x<sub>T,i</sub> − g<sub>i</sub>||²; brings final positions toward goals</td></tr>
+  <tr><td>Motion</td><td>w<sub>p</sub> mean ||x<sub>t,i</sub> − x<sub>t−1,i</sub>||²; discourages unnecessary movement</td></tr>
+  <tr><td>Separation</td><td>w<sub>sep</sub> [d<sub>min</sub> − ||x<sub>t,i</sub> − x<sub>t,j</sub>||]<sub>+</sub>²; penalizes robots that are too close</td></tr>
+  <tr><td>Maximum step</td><td>w<sub>step</sub> [||x<sub>t,i</sub> − x<sub>t−1,i</sub>|| − s<sub>max</sub>]<sub>+</sub>²</td></tr>
+  <tr><td>Soft degree</td><td>w<sub>degree</sub> [r<sub>req</sub> − d̃<sub>t,i</sub>]<sub>+</sub>²; cheap differentiable connectivity heuristic</td></tr>
+  <tr><td>GNN+CP</td><td>w<sub>CP</sub> [r<sub>req</sub> − min<sub>t</sub> r̲(G<sub>t</sub>)]<sub>+</sub>²; penalizes the worst future robustness bound</td></tr>
+</table>
+
+<p>The differentiable soft degree is:</p>
+<div class="equation">d̃<sub>t,i</sub> = Σ<sub>j≠i</sub> sigmoid((R − ||x<sub>t,i</sub> − x<sub>t,j</sub>||)/τ)</div>
+
+<p>Graph edges and predicted classes are discrete, so the CP term does not have an ordinary path derivative. The prototype estimates its smoothed gradient using positive and negative random perturbations:</p>
+<div class="equation">∇C<sub>CP</sub>(Z) ≈ [C<sub>CP</sub>(Z+σε) − C<sub>CP</sub>(Z−σε)] ε / (2σ)</div>
+
+<p>The separation and maximum-step terms are penalties, not hard constraints. Small violations can remain in the selected trajectory.</p>
+
+<div class="pagebreak"></div>
+<h2>9. Correct SVGD update order</h2>
+
+<p>SVGD does not select a trajectory and then apply repulsion. All candidate trajectories remain active until the final selection.</p>
+
+<ol>
+  <li>Create 16 candidate joint trajectories.</li>
+  <li>Evaluate the cost and cost gradient for all 16 candidates.</li>
+  <li>Calculate attraction toward lower-cost trajectory regions.</li>
+  <li>Calculate repulsion between complete candidate trajectories.</li>
+  <li>Combine both directions and update all 16 candidates simultaneously.</li>
+  <li>Repeat for the specified number of iterations.</li>
+  <li>Only then evaluate final costs and return the lowest-cost candidate.</li>
+</ol>
+
+<p>With target density p(Z) proportional to exp(−C(Z)), the update for candidate i is:</p>
+<div class="equation">
+Z<sub>i</sub> ← Z<sub>i</sub> + η/M Σ<sub>j=1</sub><sup>M</sup>[k(Z<sub>j</sub>,Z<sub>i</sub>)(−∇C(Z<sub>j</sub>)) + ∇<sub>Z<sub>j</sub></sub>k(Z<sub>j</sub>,Z<sub>i</sub>)]
+</div>
+
+<p>The first term moves particles toward lower-cost regions. The second maintains diversity between complete team trajectories.</p>
+
+<div class="callout">
+  <b>Do not mix up two repulsions:</b> the separation cost repels robots inside one trajectory; SVGD kernel repulsion separates entire candidate trajectories from one another.
+</div>
+
+<h2>10. The three-way ablation</h2>
+
+<p>All methods use the same starts, goals, 16 initial candidates, random seed, horizon, and iteration count. Only the planning objective changes.</p>
+
+<table>
+  <tr><th>Method</th><th>Cost active during SVGD</th><th>Question</th></tr>
+  <tr><td>simple</td><td>Goal, motion, separation, maximum step</td><td>What happens without a robustness objective?</td></tr>
+  <tr><td>soft_degree</td><td>Simple costs + smooth degree shortfall</td><td>Is a cheap local connectivity heuristic sufficient?</td></tr>
+  <tr><td>gnn_cp</td><td>Soft-degree costs + GATv2/CP robustness shortfall</td><td>Does the learned graph-level signal improve selected trajectories?</td></tr>
+</table>
+
+<p>The simple and soft-degree planners do not query GATv2 while optimizing. After optimization, all selected trajectories are scored by the same GNN+CP evaluator and, for at most 10 robots, the exact exhaustive robustness checker.</p>
+
+<h2>11. Current experimental result</h2>
+
+<p>Scenario: synthetic 10-robot example, four future steps, 16 candidates, five SVGD iterations, required robustness 2, maximum step 0.20, minimum separation 0.03.</p>
+
+<table>
+  <tr><th>Method</th><th>CP bound</th><th>Exact minimum r</th><th>Goal error</th><th>Max step</th><th>Min separation</th><th>Shared full cost</th><th>Time</th></tr>
+  <tr><td>simple</td><td>1</td><td class="metric-bad">1</td><td>0.068</td><td>0.200</td><td>0.036</td><td>5.019</td><td>0.333 s</td></tr>
+  <tr><td>soft_degree</td><td>0</td><td class="metric-bad">0</td><td>0.067</td><td class="metric-bad">0.248</td><td class="metric-bad">0.018</td><td>20.007</td><td>0.289 s</td></tr>
+  <tr><td>gnn_cp</td><td>2</td><td class="metric-good">2</td><td>0.059</td><td>0.201</td><td>0.035</td><td>0.003</td><td>2.276 s</td></tr>
+</table>
+
+<p>Interpretation:</p>
+<ul>
+  <li>The simple trajectory did not meet the placeholder robustness target: exact minimum r = 1.</li>
+  <li>The soft-degree heuristic performed poorly in this run: exact minimum r = 0 and both soft physical limits were violated.</li>
+  <li>GNN+CP met the placeholder robustness target with exact minimum r = 2 and had the smallest goal error.</li>
+  <li>GNN+CP was about 6.8× slower than the simple method because of repeated graph construction, neural inference, CP scoring, and random gradient probes.</li>
+  <li>The GNN+CP maximum step was 0.201 versus a soft limit of 0.200, showing why hard constraints may be needed.</li>
+</ul>
+
+<p>“Shared full cost” evaluates all selected trajectories with the same full objective, including the CP penalty. It is not merely each method’s private optimization objective.</p>
+
+<div class="warning">
+  This is one scenario and one seed. It supports the claim that integration works, not the claim that GNN+CP is generally superior. The soft-degree result could change with weights, iterations, and initialization.
+</div>
+
+<div class="pagebreak"></div>
+<h2>12. Robustness threshold and the role of F</h2>
+
+<p>The demo currently contains <code>required_robustness: 2</code>. That value was selected only to create a nontrivial synthetic example.</p>
+
+<p>If the research goal is standard W-MSR resilient consensus under an F-local adversary model, use:</p>
+<div class="equation">r<sub>required</sub> = 2F + 1</div>
+
+<table>
+  <tr><th>Maximum local adversaries F</th><th>Scalar robustness target 2F+1</th></tr>
+  <tr><td>0</td><td>1</td></tr>
+  <tr><td>1</td><td>3</td></tr>
+  <tr><td>2</td><td>5</td></tr>
+  <tr><td>3</td><td>7</td></tr>
+</table>
+
+<p>The scalar 2F+1 rule is model-dependent. F-total, asynchronous, local-broadcast, and other consensus settings can use refined conditions such as (r,s)-robustness. The current GNN predicts scalar r-robustness only. Before changing the code, confirm the adversary model and consensus protocol with the professor.</p>
+
+<h2>13. What “prototype” means here</h2>
+
+<p>The integration is runnable, but the following parts are not yet tied to a physical robot system:</p>
+<ul>
+  <li>the ten starts and goals are synthetic;</li>
+  <li>coordinates use arbitrary units;</li>
+  <li>the distance-threshold communication model is assumed rather than measured;</li>
+  <li>there are no obstacles or full robot dynamics;</li>
+  <li>movement and separation are soft penalties rather than enforced constraints;</li>
+  <li>the planner runs once as a trajectory optimizer; it is not yet an MPC loop;</li>
+  <li>the exact robustness checker is restricted to at most ten robots because exhaustive subset enumeration is expensive;</li>
+  <li>adaptive selection among many queried graphs weakens a direct interpretation of ordinary split-CP coverage;</li>
+  <li>the calibration distribution does not cover robustness zero.</li>
+</ul>
+
+<p>“Prototype” means the component connection has been demonstrated. It does not mean the selected trajectory is ready for execution on robots.</p>
+
+<h2>14. Where to change the experiment</h2>
+
+<table>
+  <tr><th>Quantity</th><th>Where it is set</th><th>How to change it</th></tr>
+  <tr><td>Number of robots</td><td>Length of start and goal arrays in planning/examples/demo_scenario.json</td><td>Add or remove matching start/goal pairs; there is no --robots flag</td></tr>
+  <tr><td>Start and goal positions</td><td>start and goal arrays in the scenario JSON</td><td>Replace with real positions in consistent units</td></tr>
+  <tr><td>Communication radius</td><td>config.communication_radius</td><td>Use a measured or modeled communication rule</td></tr>
+  <tr><td>Minimum separation</td><td>config.minimum_separation</td><td>Set from robot geometry and safety margin</td></tr>
+  <tr><td>Maximum step</td><td>config.maximum_step</td><td>Set from time step and motion capability</td></tr>
+  <tr><td>Robustness threshold</td><td>config.required_robustness</td><td>Derive from F and the chosen consensus/adversary model</td></tr>
+  <tr><td>Alternative joint trajectories</td><td>--particles, default 16</td><td>Increase for exploration; runtime rises</td></tr>
+  <tr><td>Future horizon</td><td>--steps, default 4</td><td>More steps create a longer trajectory and more graph queries</td></tr>
+  <tr><td>SVGD updates</td><td>--iterations, default 5</td><td>Increase for more optimization; runtime rises</td></tr>
+  <tr><td>Initialization diversity</td><td>--noise, default 0.07</td><td>Controls noise around straight-line trajectories</td></tr>
+</table>
+
+<div class="pagebreak"></div>
+<h2>15. Commands for the meeting</h2>
+
+<h3>Verify GPU</h3>
+<pre>nvidia-smi
+JAX_PLATFORMS=cuda .venv/bin/python -c 'import jax; print(jax.devices())'</pre>
+
+<h3>Evaluate New GATv2 and both CP scores</h3>
+<pre>JAX_PLATFORMS=cuda .venv/bin/python jax_test_new_gatv2.py \
+  --checkpoint checkpoints/full_run_xK0R3I/new_gatv2.msgpack \
+  --batch-size 32 \
+  --conformal-coverage 0.9</pre>
+
+<h3>Run the three-way trajectory comparison</h3>
+<pre>JAX_PLATFORMS=cuda .venv/bin/python run_svgd_experiment.py \
+  --scenario planning/examples/demo_scenario.json \
+  --checkpoint checkpoints/full_run_xK0R3I/new_gatv2.msgpack \
+  --particles 16 \
+  --steps 4 \
+  --iterations 5 \
+  --output svgd_three_way_results.json</pre>
+
+<h3>Create a custom scenario</h3>
+<pre>cp planning/examples/demo_scenario.json planning/examples/my_scenario.json
+
+# Edit my_scenario.json, then:
+JAX_PLATFORMS=cuda .venv/bin/python run_svgd_experiment.py \
+  --scenario planning/examples/my_scenario.json \
+  --particles 16 --steps 4 --iterations 20 \
+  --checkpoint checkpoints/full_run_xK0R3I/new_gatv2.msgpack \
+  --output my_svgd_results.json</pre>
+
+<h2>16. Recommended next experiment</h2>
+
+<ol>
+  <li><b>Confirm the theory:</b> ask which adversary model, consensus protocol, and F value the professor intends. Derive the correct robustness target.</li>
+  <li><b>Confirm graph generation:</b> find how training graphs were produced and determine whether a physical distance-radius graph matches that distribution.</li>
+  <li><b>Define physical scenarios:</b> real robot count, starts, goals, time step, communication rule, speed, separation, obstacles, and dynamics.</li>
+  <li><b>Run an ablation matrix:</b> simple, soft degree, and GNN+CP across multiple scenarios and at least 10–20 random seeds.</li>
+  <li><b>Report distributions:</b> success rate for exact r ≥ threshold, minimum exact r, constraint violations, goal error, mean runtime, and worst-case runtime.</li>
+  <li><b>Sweep planner settings:</b> candidate count, horizon, iterations, CP weight, and robustness threshold.</li>
+  <li><b>Decide whether to keep SVGD:</b> if success or runtime is poor after reasonable tuning, implement the same three-way objectives in MPPI or MBD.</li>
+  <li><b>Move toward MPC only after that:</b> repeatedly observe, plan over a horizon, execute the first control step, and replan.</li>
+</ol>
+
+<h2>17. Suggested presentation script</h2>
+
+<p><b>Opening:</b> “The goal is to use a learned graph-robustness estimate inside a multi-robot trajectory planner. The GNN does not generate trajectories. SVGD generates and updates candidate joint trajectories; each future robot configuration becomes a graph, and GATv2 plus CP scores its robustness.”</p>
+
+<p><b>Dataset result:</b> “I replaced global per-graph padding with compact storage and controlled batch-level padding for JIT reuse. In a matched GATv2 run this reduced steady epoch time from roughly 94 seconds to 16 seconds, although test accuracy changed from 93% to 88%, so the representation tradeoff needs further investigation.”</p>
+
+<p><b>Planner result:</b> “I compared the same initial SVGD trajectories under three objectives. In one synthetic scenario, the GNN+CP objective found exact minimum robustness 2, versus 1 for the simple cost and 0 for soft degree, but required about 2.28 seconds rather than 0.33 seconds.”</p>
+
+<p><b>Limit:</b> “This is an integration result, not yet a physical or statistical validation. The scenario parameters are synthetic, the one-sided CP correction is zero, and the target r = 2 is a placeholder.”</p>
+
+<p><b>Decision request:</b> “I need to confirm the intended adversary model and F, how the training graphs were generated, and the physical robot constraints. Then I can run the three-way comparison across realistic scenarios and decide whether SVGD is strong and fast enough or whether to move to MPPI or MBD.”</p>
+
+<h2>18. Likely questions and direct answers</h2>
+
+<table>
+  <tr><th>Question</th><th>Answer</th></tr>
+  <tr><td>What is a particle?</td><td>One complete joint future trajectory for all robots. Sixteen particles mean sixteen alternatives for the same team.</td></tr>
+  <tr><td>Does SVGD operate on nodes or graphs?</td><td>Neither directly. It updates all waypoint coordinates in a joint trajectory. Those positions induce one graph per future step.</td></tr>
+  <tr><td>What does the GNN predict?</td><td>One scalar robustness class for the whole graph at each future step.</td></tr>
+  <tr><td>Why train a GNN if positions are known?</td><td>Positions determine the graph, but exact r-robustness is combinatorial. The GNN is intended as a fast approximation during many planning queries.</td></tr>
+  <tr><td>Do we still need training_data.json?</td><td>Yes for offline training. Planning with an existing checkpoint does not reload the training set.</td></tr>
+  <tr><td>Is CP a guarantee here?</td><td>No. It is a calibrated marginal uncertainty estimate; distribution shift and adaptive trajectory selection prevent a direct selected-plan guarantee.</td></tr>
+  <tr><td>Why 10 robots?</td><td>It was selected for the synthetic demo because the included exact checker is feasible up to ten robots.</td></tr>
+  <tr><td>Why 16 candidates?</td><td>It is a manageable prototype setting, not a theoretically optimal number.</td></tr>
+  <tr><td>Why is GNN+CP slower?</td><td>It builds and scores many future graphs and estimates a gradient for a discrete robustness penalty using multiple probes.</td></tr>
+  <tr><td>Is this MPC?</td><td>No. It is currently a one-shot trajectory optimizer. MPC would execute only the first step, observe the system again, and replan repeatedly.</td></tr>
+  <tr><td>Should the target be 2F+1?</td><td>Yes for the standard scalar r-robustness sufficiency condition under the corresponding W-MSR/F-local assumptions. Confirm the exact system model first.</td></tr>
+</table>
+
+<h2>19. Code map</h2>
+
+<table>
+  <tr><th>Path</th><th>Purpose</th></tr>
+  <tr><td>gnn/variants.py</td><td>Compact records, batch-level padding, training, testing, and checkpoints</td></tr>
+  <tr><td>gnn/models/gatv2.py</td><td>Current New GATv2 graph classifier</td></tr>
+  <tr><td>conformal/scores.py</td><td>LAC and one-sided conformal scores</td></tr>
+  <tr><td>planning/examples/demo_scenario.json</td><td>Synthetic robot starts, goals, and planner settings</td></tr>
+  <tr><td>planning/run_experiment.py</td><td>Initial trajectories, three-way experiment, exact check, and reporting</td></tr>
+  <tr><td>planning/svgd_cp_planner.py</td><td>Graph construction, GATv2/CP scorer, costs, gradient approximation, and SVGD update</td></tr>
+  <tr><td>planning/README.md</td><td>Planner usage and limitations</td></tr>
+  <tr><td>legacy/</td><td>Historical padded pipeline and older implementations</td></tr>
+</table>
+
+<h2>References</h2>
+<ol>
+  <li>H. J. LeBlanc, H. Zhang, X. Koutsoukos, and S. Sundaram, “Resilient Asymptotic Consensus in Robust Networks,” IEEE Journal on Selected Areas in Communications, 2013.</li>
+  <li>H. LeBlanc et al., “Resilient Asymptotic Consensus in Asynchronous Robust Networks,” Allerton Conference, 2012.</li>
+  <li>Q. Liu and D. Wang, “Stein Variational Gradient Descent: A General Purpose Bayesian Inference Algorithm,” NeurIPS, 2016.</li>
+</ol>
+
+<p class="footer-note">This brief records the current repository behavior and measured results as of 15 October 2026. Synthetic scenario results should not be interpreted as robot-system guarantees.</p>
+
+</body>
+</html>

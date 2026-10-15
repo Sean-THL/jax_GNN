@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title description">
+  <title id="title">SVGD planner with GATv2 and conformal robustness lower bounds</title>
+  <desc id="description">A checkpoint and calibration set create a conformal scorer. For each SVGD particle, robot waypoints become communication graphs, GATv2 and conformal prediction give lower bounds, and the minimum bound contributes a cost. Smooth costs and probe-estimated conformal cost gradients update the particles. The best trajectory is returned.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#52677f"/>
+    </marker>
+    <style>
+      .background { fill: #f7f9fc; }
+      .card { fill: #fff; stroke: #b8c5d4; stroke-width: 2; }
+      .input { fill: #eef4ff; stroke: #7b9fdb; }
+      .model { fill: #ecf8f5; stroke: #63ae9c; }
+      .cost { fill: #fff4e7; stroke: #dca563; }
+      .update { fill: #f3efff; stroke: #9b83ce; }
+      .result { fill: #eaf7ec; stroke: #6aaa78; }
+      .section { font: 700 23px system-ui, sans-serif; fill: #243750; }
+      .heading { font: 700 22px system-ui, sans-serif; fill: #203148; }
+      .body { font: 17px system-ui, sans-serif; fill: #43556d; }
+      .small { font: 15px system-ui, sans-serif; fill: #54677f; }
+      .caption { font: 16px system-ui, sans-serif; fill: #405269; }
+      .line { fill: none; stroke: #52677f; stroke-width: 3; marker-end: url(#arrow); }
+      .dash { stroke-dasharray: 9 8; }
+    </style>
+  </defs>
+
+  <rect class="background" width="1600" height="1000"/>
+  <text x="60" y="58" class="heading" style="font-size:32px">SVGD + GATv2 + conformal prediction</text>
+  <text x="60" y="87" class="body">Each particle is a short joint trajectory for every robot.</text>
+
+  <text x="60" y="132" class="section">1. Prepare the scorer once</text>
+  <rect x="60" y="157" width="310" height="85" rx="16" class="card input"/>
+  <text x="85" y="192" class="heading">New GATv2 checkpoint</text>
+  <text x="85" y="218" class="body">Frozen network weights</text>
+  <rect x="60" y="260" width="310" height="85" rx="16" class="card input"/>
+  <text x="85" y="295" class="heading">Calibration data</text>
+  <text x="85" y="321" class="body">Graphs and true labels</text>
+  <rect x="480" y="190" width="350" height="120" rx="16" class="card model"/>
+  <text x="505" y="231" class="heading">ConformalGraphScorer</text>
+  <text x="505" y="260" class="body">Run model on calibration graphs</text>
+  <text x="505" y="286" class="body">Fit selected CP score</text>
+  <rect x="945" y="190" width="400" height="120" rx="16" class="card model"/>
+  <text x="970" y="231" class="heading">Calibrated threshold</text>
+  <text x="970" y="260" class="body">One-sided residual or LAC</text>
+  <text x="970" y="286" class="body">Reused for every candidate graph</text>
+  <path class="line" d="M 370 200 H 420 V 232 H 480"/>
+  <path class="line" d="M 370 302 H 420 V 268 H 480"/>
+  <path class="line" d="M 830 250 H 945"/>
+
+  <text x="60" y="410" class="section">2. Score candidate trajectories on every iteration</text>
+  <rect x="60" y="435" width="260" height="125" rx="16" class="card input"/>
+  <text x="84" y="472" class="heading">SVGD particles</text>
+  <text x="84" y="501" class="body">Candidate trajectories</text>
+  <text x="84" y="527" class="small">(particles, steps, robots, 2)</text>
+  <rect x="365" y="435" width="260" height="125" rx="16" class="card input"/>
+  <text x="389" y="472" class="heading">Future waypoints</text>
+  <text x="389" y="501" class="body">2D robot positions</text>
+  <text x="389" y="527" class="small">for each future step</text>
+  <rect x="670" y="435" width="260" height="125" rx="16" class="card model"/>
+  <text x="694" y="472" class="heading">Communication graphs</text>
+  <text x="694" y="501" class="body">Edge if distance ≤ radius</text>
+  <text x="694" y="527" class="small">Node features: [degree, 1]</text>
+  <rect x="975" y="435" width="260" height="125" rx="16" class="card model"/>
+  <text x="999" y="472" class="heading">GATv2 + CP</text>
+  <text x="999" y="501" class="body">Class probabilities</text>
+  <text x="999" y="527" class="small">→ lower bound per graph</text>
+  <rect x="1280" y="435" width="260" height="125" rx="16" class="card cost"/>
+  <text x="1304" y="472" class="heading">Worst-step bound</text>
+  <text x="1304" y="501" class="body">min over future steps</text>
+  <text x="1304" y="527" class="small">→ CP shortfall cost</text>
+  <path class="line" d="M 320 498 H 365"/>
+  <path class="line" d="M 625 498 H 670"/>
+  <path class="line" d="M 930 498 H 975"/>
+  <path class="line" d="M 1235 498 H 1280"/>
+  <path class="line dash" d="M 1145 310 V 385 H 1105 V 435"/>
+  <text x="1152" y="375" class="small">threshold</text>
+
+  <text x="60" y="642" class="section">3. Estimate cost directions and update particles</text>
+  <rect x="365" y="666" width="355" height="127" rx="16" class="card cost"/>
+  <text x="389" y="704" class="heading">Smooth trajectory costs</text>
+  <text x="389" y="733" class="body">Goal, motion, collision, speed,</text>
+  <text x="389" y="760" class="body">soft degree → automatic gradient</text>
+  <rect x="910" y="666" width="390" height="127" rx="16" class="card cost"/>
+  <text x="934" y="704" class="heading">Discrete CP shortfall cost</text>
+  <text x="934" y="733" class="body">weight × max(0, target − bound)²</text>
+  <text x="934" y="760" class="body">Nearby probes estimate a gradient</text>
+  <path class="line" d="M 495 560 V 666"/>
+  <path class="line" d="M 1410 560 V 620 H 1105 V 666"/>
+
+  <rect x="612" y="835" width="370" height="105" rx="16" class="card update"/>
+  <text x="637" y="875" class="heading">SVGD update</text>
+  <text x="637" y="904" class="body">Lower cost + particle repulsion</text>
+  <rect x="1180" y="835" width="360" height="105" rx="16" class="card result"/>
+  <text x="1205" y="875" class="heading">Return best trajectory</text>
+  <text x="1205" y="904" class="body">Lowest total cost after iterations</text>
+  <path class="line" d="M 542 793 V 812 H 715 V 835"/>
+  <path class="line" d="M 1105 793 V 812 H 875 V 835"/>
+  <path class="line" d="M 982 887 H 1180"/>
+  <path class="line dash" d="M 612 887 H 35 V 498 H 60"/>
+  <text x="55" y="973" class="caption">Dashed return path: repeat the scoring and update loop for the chosen number of iterations.</text>
+</svg>
