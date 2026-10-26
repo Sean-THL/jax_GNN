@@ -1,14 +1,15 @@
 """GATv2Conv model; checkpoints are managed by jax_variants.py."""
 import flax.nnx as nnx
-from jraphx.nn.conv import GATv2Conv
 from jraphx.nn.pool import global_mean_pool
+
+from gnn.models.weighted_gatv2 import WeightedGATv2Conv
 
 ## GNN model 
 class GNN(nnx.Module):
     def __init__(self, in_features, hidden_features, num_classes, rngs, batchsize, heads=4):
-        self.conv1 = GATv2Conv(in_features, hidden_features // heads, heads=heads, edge_dim=1, rngs=rngs)
-        self.conv2 = GATv2Conv(hidden_features, hidden_features // heads, heads=heads, edge_dim=1, rngs=rngs)
-        self.conv3 = GATv2Conv(hidden_features, hidden_features // heads, heads=heads, edge_dim=1, rngs=rngs)
+        self.conv1 = WeightedGATv2Conv(in_features, hidden_features // heads, heads=heads, edge_dim=1, rngs=rngs)
+        self.conv2 = WeightedGATv2Conv(hidden_features, hidden_features // heads, heads=heads, edge_dim=1, rngs=rngs)
+        self.conv3 = WeightedGATv2Conv(hidden_features, hidden_features // heads, heads=heads, edge_dim=1, rngs=rngs)
 
         self.norm1 = nnx.LayerNorm(hidden_features, rngs=rngs)
         self.norm2 = nnx.LayerNorm(hidden_features, rngs=rngs)
@@ -35,7 +36,8 @@ class GNN(nnx.Module):
         - Contains the graph's actual directed edges.
 
         3. edge_attr: 
-        - Constant 1 for each actual edge.
+        - Binary connectivity in hard mode or equation-(7) weights in smooth
+          mode. Values gate messages and also enter the learned attention.
 
         4. batch:
         - Batch assignment vector used for mini-batching.

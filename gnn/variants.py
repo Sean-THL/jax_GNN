@@ -86,9 +86,11 @@ def prepare_records(records):
         degree = np.asarray(record["degree"], dtype=np.float32)
         record["features"] = np.stack((degree, np.ones_like(degree)), axis=1)
         record["edge_index"] = np.asarray(record["edge_index"], dtype=np.int32)
+        if "edge_attr" in record:
+            record["edge_attr"] = np.asarray(record["edge_attr"], dtype=np.float32).reshape(-1, 1)
         # Discard unused fields and large Python lists after conversion.
         for key in list(record):
-            if key not in ("features", "edge_index", "robustness"):
+            if key not in ("features", "edge_index", "edge_attr", "robustness"):
                 del record[key]
     return records
 
@@ -127,7 +129,9 @@ def batches(records, batch_size, representation, order=None, *, pad_new=True):
             # Preserve original placeholder edges at local node zero.
             edge_index[:, edge_offset:edge_offset+edge_count] = node_offset
             edge_index[:, edge_offset:edge_offset+e] = record["edge_index"] + node_offset
-            edge_attr[edge_offset:edge_offset+e] = 1
+            edge_attr[edge_offset:edge_offset+e] = record.get(
+                "edge_attr", np.ones((e, 1), dtype=np.float32)
+            )
             node_offset += node_count
             edge_offset += edge_count
         yield SimpleNamespace(x=x, edge_index=edge_index, edge_attr=edge_attr,

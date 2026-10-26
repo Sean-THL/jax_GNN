@@ -25,6 +25,7 @@ from conformal.scores import (
     predict_underbounds,
 )
 from gnn.variants import model_class, predict_probabilities, prepare_records, read_records
+from planning.connectivity import adjacency, smooth_adjacency
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,8 @@ class PlannerConfig:
     minimum_separation: float
     maximum_step: float
     required_robustness: int
+    connectivity_mode: str = "hard"
+    connectivity_sigma: float | None = None
     cp_kind: str = "one_sided"  # or "lac"
     cp_coverage: float = 0.9
     cp_weight: float = 5.0
@@ -47,24 +50,38 @@ class PlannerConfig:
     cp_directions: int = 2
 
 
-def communication_records(positions: np.ndarray, radius: float) -> list[dict]:
-    """Create the same degree/edge representation used by the trained GNN."""
+def communication_records(
+    positions: np.ndarray,
+    radius: float,
+    mode: str = "hard",
+    sigma: float | None = None,
+) -> list[dict]:
+    """Create binary compact graphs or weighted dense equation-(7) graphs."""
     positions = np.asarray(positions, dtype=np.float32)
     if positions.ndim != 3 or positions.shape[2] != 2:
         raise ValueError("positions must have shape (graphs, robots, 2)")
     n = positions.shape[1]
     if not 1 <= n <= 50 or radius <= 0:
         raise ValueError("robots must be 1..50 and radius must be positive")
+    if mode not in ("hard", "smooth"):
+        raise ValueError("connectivity mode must be 'hard' or 'smooth'")
+    if sigma is not None and sigma <= 0:
+        raise ValueError("connectivity sigma must be positive")
+    weights = np.asarray(adjacency(positions, radius, mode, sigma))
     records = []
-    for graph in positions:
-        distance_squared = np.sum((graph[:, None] - graph[None, :]) ** 2, axis=-1)
-        adjacent = (distance_squared <= radius**2) & ~np.eye(n, dtype=bool)
-        source, target = np.nonzero(adjacent)
-        degree = np.bincount(source, minlength=n).astype(np.float32)
+    for graph_weights in weights:
+        if mode == "hard":
+            source, target = np.nonzero(graph_weights)
+            edge_weight = np.ones(len(source), dtype=np.float32)
+        else:
+            source, target = np.nonzero(~np.eye(n, dtype=bool))
+            edge_weight = graph_weights[source, target].astype(np.float32)
+        degree = graph_weights.sum(axis=1, dtype=np.float32)
         features = np.column_stack((degree, np.ones(n, dtype=np.float32)))
         records.append({
             "features": features,
             "edge_index": np.stack((source, target)).astype(np.int32),
+            "edge_attr": edge_weight[:, None],
             "robustness": 0,  # batching requires a label; candidate labels are unknown
         })
     return records
@@ -97,8 +114,11 @@ class ConformalGraphScorer:
             else calibrate_underbound(probabilities.argmax(axis=1), labels, coverage)
         )
 
-    def lower_bounds(self, positions: np.ndarray, radius: float) -> np.ndarray:
-        records = communication_records(positions, radius)
+    def lower_bounds(
+        self, positions: np.ndarray, radius: float, mode: str = "hard",
+        sigma: float | None = None,
+    ) -> np.ndarray:
+        records = communication_records(positions, radius, mode, sigma)
         probabilities, _ = predict_probabilities(
             self.model, records, self.batch_size, "new"
         )
@@ -126,19 +146,30 @@ def svgd_direction(particles: np.ndarray, log_density_gradient: np.ndarray) -> n
 def _smooth_cost_single(waypoints, start, goal, config: PlannerConfig):
     path = jnp.concatenate((start[None], waypoints), axis=0)
     motion = path[1:] - path[:-1]
-    step_length = jnp.linalg.norm(motion, axis=-1)
+    step_squared = jnp.sum(motion**2, axis=-1)
+    # The derivative of norm(0) is undefined.  This epsilon keeps stationary
+    # particles finite without perturbing the squared path-energy term.
+    step_length = jnp.sqrt(step_squared + 1e-12)
     displacement = path[:, :, None, :] - path[:, None, :, :]
     distance = jnp.linalg.norm(displacement + 1e-8, axis=-1)
     off_diagonal = 1.0 - jnp.eye(start.shape[0])
     collision = jnp.maximum(config.minimum_separation - distance, 0.0) ** 2
     collision = (collision * off_diagonal).sum() / (start.shape[0] * (start.shape[0] - 1))
     # A differentiable necessary condition for r-robustness: degree >= r.
-    soft_edges = jax.nn.sigmoid((config.communication_radius - distance) / config.smooth_temperature)
+    # Preserve the sigmoid heuristic in hard mode as the original baseline.
+    if config.connectivity_mode == "smooth":
+        soft_edges = smooth_adjacency(
+            path, config.communication_radius, config.connectivity_sigma
+        )
+    else:
+        soft_edges = jax.nn.sigmoid(
+            (config.communication_radius - distance) / config.smooth_temperature
+        )
     soft_degree = (soft_edges * off_diagonal).sum(axis=-1)
     degree_shortfall = jnp.maximum(config.required_robustness - soft_degree[1:], 0.0)
     return (
         config.goal_weight * jnp.mean((waypoints[-1] - goal) ** 2)
-        + config.path_weight * jnp.mean(step_length**2)
+        + config.path_weight * jnp.mean(step_squared)
         + config.collision_weight * collision
         + config.speed_weight * jnp.mean(jnp.maximum(step_length - config.maximum_step, 0.0) ** 2)
         + config.degree_weight * jnp.mean(degree_shortfall**2)
@@ -147,7 +178,10 @@ def _smooth_cost_single(waypoints, start, goal, config: PlannerConfig):
 
 def cp_cost(particles: np.ndarray, scorer: ConformalGraphScorer, config: PlannerConfig):
     p, steps, robots, _ = particles.shape
-    bounds = scorer.lower_bounds(particles.reshape(p * steps, robots, 2), config.communication_radius)
+    bounds = scorer.lower_bounds(
+        particles.reshape(p * steps, robots, 2), config.communication_radius,
+        config.connectivity_mode, config.connectivity_sigma,
+    )
     minimum = bounds.reshape(p, steps).min(axis=1)
     shortfall = np.maximum(config.required_robustness - minimum, 0)
     return config.cp_weight * shortfall.astype(float) ** 2, minimum
@@ -189,6 +223,10 @@ def plan(
         raise ValueError("at least two robots, two particles, and one step are required")
     if not 0 <= config.required_robustness < len(start):
         raise ValueError("required_robustness must be between zero and robots - 1")
+    if config.connectivity_mode not in ("hard", "smooth"):
+        raise ValueError("connectivity_mode must be 'hard' or 'smooth'")
+    if config.connectivity_sigma is not None and config.connectivity_sigma <= 0:
+        raise ValueError("connectivity_sigma must be positive")
     if iterations < 1 or config.cp_directions < 1 or config.cp_smoothing <= 0:
         raise ValueError("iterations, cp_directions, and cp_smoothing must be positive")
     if config.cp_weight and scorer is None:

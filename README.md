@@ -33,6 +33,8 @@ diagram, and demo paths also point to their maintained files under `planning/`.
 - Best-validation checkpointing for the integrated pipelines.
 - Independent test-set evaluation for the integrated pipelines.
 - Optional conformal prediction sets and one-sided robustness lower bounds.
+- Optional equation-(7) smooth communication weights in the experimental
+  planner; hard binary connectivity remains the default.
 - JIT-friendly compact batching with disconnected padding and reusable edge
   buckets.
 

@@ -4,8 +4,10 @@
 
 `svgd_cp_planner.py` is an isolated prototype. A particle contains a short
 sequence of 2-D waypoints for every robot. Each future waypoint is converted
-to a directed communication graph using a supplied distance threshold. Its
-node features and edge attributes match the New GATv2 training pipeline.
+to a directed communication graph. The default `hard` mode preserves the
+trained binary radius graph. The optional `smooth` mode uses equation (7) of
+Capelli and Sabattini, with `sigma = R^4 / ln(2)` by default, weighted degrees,
+and a fixed dense off-diagonal edge index.
 
 The experiment compares three SVGD objectives using identical initial particles:
 
@@ -21,8 +23,13 @@ integer residual score; `cp_kind="lac"` uses the lower endpoint of the LAC set.
 The discrete CP cost has no ordinary path derivative. The prototype estimates
 the gradient of a Gaussian-smoothed CP cost with two-sided random probes and
 applies an RBF SVGD update to the particles. The soft degree term provides a
-differentiable connectivity signal when random probes do not cross an edge
-threshold.
+differentiable connectivity signal. In smooth mode it uses the equation-(7)
+adjacency; hard mode retains the original sigmoid degree heuristic.
+
+The GATv2 layer uses a scalar edge value both in its learned attention logit
+and as a multiplicative attention prior. Thus zero-weight dense edges cannot
+send messages. For binary compact graphs this layer is algebraically identical
+to the original `jraphx` layer, so existing checkpoints load unchanged.
 
 ## Run the included demonstration
 
@@ -33,8 +40,22 @@ From the repository root:
 ```bash
 JAX_PLATFORMS=cuda .venv/bin/python run_svgd_experiment.py \
   --scenario planning/examples/demo_scenario.json \
+  --connectivity-mode hard \
   --output /tmp/svgd_results.json
 ```
+
+Run the weighted mode with the default sigma:
+
+```bash
+JAX_PLATFORMS=cuda .venv/bin/python run_svgd_experiment.py \
+  --scenario planning/examples/demo_scenario.json \
+  --connectivity-mode smooth \
+  --output /tmp/svgd_smooth_results.json
+```
+
+Use `--connectivity-sigma VALUE` to override `R^4 / ln(2)`. Sigma must be
+positive. These options can instead be stored as `connectivity_mode` and
+`connectivity_sigma` in the scenario's `config` object.
 
 The runner creates 16 initial trajectories around a straight-line route using
 one fixed random seed. It gives the **same particles** to all three runs and
@@ -112,3 +133,44 @@ GNN queries. Consequently the nominal CP coverage cannot be interpreted as a
 guarantee for the selected trajectory. Validate the communication graph rule,
 calibration distribution, collision/dynamics constraints, and selected plans
 before integrating with a robot system.
+
+## Differentiability and checkpoint limits
+
+The differentiable path in smooth mode is `positions -> equation-(7)
+adjacency -> weighted degree -> degree shortfall -> SVGD gradient`.
+
+The learned robustness path is not end-to-end differentiable. It still contains
+the hard support condition at `d = R`, class `argmax`, integer conformal
+quantile/lower-bound lookup, a minimum over future steps, and particle `argmin`.
+It also crosses host NumPy batching. The planner therefore continues to use
+two-sided SPSA probes for the GNN/CP penalty. Exact r-robustness evaluation is
+combinatorial and is never differentiated.
+
+The gradient audit found these concrete barriers:
+
+| Pipeline operation | Gradient consequence |
+| --- | --- |
+| Hard `distance_squared <= R^2` and `np.nonzero` | Binary values and a dynamic sparse edge list; no position derivative |
+| Host `np.asarray` plus Python graph-record/batch construction | Breaks JAX tracing before GNN inference |
+| GNN class `argmax` | Converts continuous probabilities to an integer class |
+| LAC comparison and first-true `argmax` | Boolean threshold and discrete set endpoint |
+| One-sided CP `ceil`, `clip`, and integer cast | Discrete calibrated lookup/output |
+| Minimum lower bound across waypoints | Selects a worst step after the already-discrete lookup |
+| Exhaustive r-robustness subset/bit-count logic | Purely combinatorial evaluation |
+| Final particle `argmin` | Discrete plan selection, not an optimization gradient |
+
+The hard support test remains in equation (7), but clipping makes the two
+pieces meet with zero first derivative at the boundary. It is therefore finite
+and differentiable there in JAX while still providing no recovery gradient
+from outside the radius.
+
+Equation (7) has zero position gradient at `d = 0`, at `d = R`, and throughout
+`d > R`; it cannot attract robots that are already outside communication
+range. The branch is evaluated safely by clipping `R^2 - d^2` before `expm1`,
+so the inactive exponential cannot overflow under JIT.
+
+The bundled GATv2 checkpoint was trained only on binary edge attributes and
+integer degrees. Loading it in smooth mode is structurally compatible, but its
+predictions on fractional weights/degrees are out of distribution. Retraining
+on weighted graphs, followed by fresh conformal calibration from the same
+weighted-graph distribution, is recommended before interpreting those scores.

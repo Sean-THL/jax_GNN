@@ -12,8 +12,8 @@ from planning.svgd_cp_planner import (
 
 
 class _DegreeScorer:
-    def lower_bounds(self, positions, radius):
-        records = communication_records(positions, radius)
+    def lower_bounds(self, positions, radius, mode="hard", sigma=None):
+        records = communication_records(positions, radius, mode, sigma)
         return np.asarray([int(record["features"][:, 0].min()) for record in records])
 
 
@@ -23,6 +23,18 @@ class PlannerTests(unittest.TestCase):
         graph = communication_records(positions, radius=1.0)[0]
         np.testing.assert_array_equal(graph["features"][:, 0], [1, 1, 0])
         np.testing.assert_array_equal(graph["edge_index"], [[0, 1], [1, 0]])
+        np.testing.assert_array_equal(graph["edge_attr"], [[1.], [1.]])
+
+    def test_smooth_graph_keeps_fixed_edges_and_weighted_degrees(self):
+        positions = np.asarray([[[0., 0.], [0.5, 0.], [2., 0.]]])
+        graph = communication_records(positions, radius=1.0, mode="smooth")[0]
+        self.assertEqual(graph["edge_index"].shape, (2, 6))
+        np.testing.assert_allclose(
+            graph["features"][:, 0],
+            [graph["edge_attr"][0, 0], graph["edge_attr"][2, 0], 0.0],
+            rtol=1e-6,
+            atol=1e-6,
+        )
 
     def test_svgd_repels_particles_when_cost_gradient_is_zero(self):
         particles = np.asarray([[-1.0], [1.0]])

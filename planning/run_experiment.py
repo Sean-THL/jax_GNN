@@ -91,9 +91,13 @@ def exact_robustness(record):
 
 
 def trajectory_summary(waypoints, start, goal, scorer, config, wall_seconds):
-    records = communication_records(waypoints, config.communication_radius)
-    lower_bounds = scorer.lower_bounds(waypoints, config.communication_radius)
-    actual = [exact_robustness(record) for record in records]
+    # Exact r-robustness remains defined on the hard support graph.
+    exact_records = communication_records(waypoints, config.communication_radius)
+    lower_bounds = scorer.lower_bounds(
+        waypoints, config.communication_radius,
+        config.connectivity_mode, config.connectivity_sigma,
+    )
+    actual = [exact_robustness(record) for record in exact_records]
     path = np.concatenate((start[None], waypoints), axis=0)
     movement = np.linalg.norm(np.diff(path, axis=0), axis=-1)
     differences = path[:, :, None, :] - path[:, None, :, :]
@@ -133,6 +137,10 @@ def main():
     parser.add_argument("--iterations", type=int, default=5)
     parser.add_argument("--noise", type=float, default=0.07)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--connectivity-mode", choices=("hard", "smooth"),
+                        help="Override the scenario connectivity mode (default: hard)")
+    parser.add_argument("--connectivity-sigma", type=float,
+                        help="Smooth sigma (default: R^4 / ln(2))")
     parser.add_argument("--output", type=Path, help="Optional JSON file for both trajectories and metrics")
     args = parser.parse_args()
 
@@ -142,8 +150,14 @@ def main():
     if start.shape != goal.shape or start.ndim != 2 or start.shape[1] != 2:
         parser.error("scenario start and goal must have matching (robots, 2) arrays")
     config = PlannerConfig(**scenario["config"])
+    if args.connectivity_mode is not None:
+        config = replace(config, connectivity_mode=args.connectivity_mode)
+    if args.connectivity_sigma is not None:
+        config = replace(config, connectivity_sigma=args.connectivity_sigma)
     if config.degree_weight <= 0 or config.cp_weight <= 0:
         parser.error("three-way comparison requires positive degree_weight and cp_weight")
+    if config.connectivity_sigma is not None and config.connectivity_sigma <= 0:
+        parser.error("connectivity-sigma must be positive")
     particles = initial_trajectories(
         start, goal, args.particles, args.steps, args.noise, args.seed
     )
@@ -168,6 +182,8 @@ def main():
     print(f"Scenario: {scenario.get('description', args.scenario.name)}")
     print(f"Robots: {len(start)}; particles: {args.particles}; future steps: {args.steps}; iterations: {args.iterations}")
     print(f"CP method: {config.cp_kind}; target coverage: {config.cp_coverage:.0%}; required robustness: {config.required_robustness}")
+    sigma_text = "R^4 / ln(2)" if config.connectivity_sigma is None else str(config.connectivity_sigma)
+    print(f"Connectivity: {config.connectivity_mode}; sigma: {sigma_text if config.connectivity_mode == 'smooth' else 'n/a'}")
     print("Method        CP bound   Exact r   Goal error   Max step   Min separation   Shared cost   Seconds")
     for name, _ in comparison_configs(config):
         value = results[name]
