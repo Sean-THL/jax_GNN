@@ -2,7 +2,7 @@
 
 ![SVGD, GATv2, and conformal prediction pipeline](pipeline.svg)
 
-`svgd_cp_planner.py` is an isolated prototype. A particle contains a short
+`planning.svgd_cp_planner` is an isolated prototype. A particle contains a short
 sequence of 2-D waypoints for every robot. Each future waypoint is converted
 to a directed communication graph. The default `hard` mode preserves the
 trained binary radius graph. The optional `smooth` mode uses equation (7) of
@@ -38,7 +38,7 @@ only for checking the pipeline, not a real communication or flight setup.
 From the repository root:
 
 ```bash
-JAX_PLATFORMS=cuda .venv/bin/python run_svgd_experiment.py \
+JAX_PLATFORMS=cuda .venv/bin/python -m planning \
   --scenario planning/examples/demo_scenario.json \
   --connectivity-mode hard \
   --output /tmp/svgd_results.json
@@ -47,7 +47,7 @@ JAX_PLATFORMS=cuda .venv/bin/python run_svgd_experiment.py \
 Run the weighted mode with the default sigma:
 
 ```bash
-JAX_PLATFORMS=cuda .venv/bin/python run_svgd_experiment.py \
+JAX_PLATFORMS=cuda .venv/bin/python -m planning \
   --scenario planning/examples/demo_scenario.json \
   --connectivity-mode smooth \
   --output /tmp/svgd_smooth_results.json
@@ -103,7 +103,7 @@ Example (from the repository root, with the project virtual environment):
 ```python
 from pathlib import Path
 import numpy as np
-from svgd_cp_planner import ConformalGraphScorer, PlannerConfig, plan
+from planning.svgd_cp_planner import ConformalGraphScorer, PlannerConfig, plan
 
 start = np.asarray(...)  # (robots, 2), in meters
 goal = np.asarray(...)   # (robots, 2), in meters

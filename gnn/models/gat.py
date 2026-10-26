@@ -70,7 +70,10 @@ def save_model(model):
 def load_model(batchsize):
     """Restore the model parameters saved by :func:`save_model`."""
     if not CHECKPOINT_PATH.exists():
-        raise FileNotFoundError(f"No trained model at {CHECKPOINT_PATH}; run jax_train_new.py first")
+        raise FileNotFoundError(
+            f"No trained model at {CHECKPOINT_PATH}; run "
+            "'python -m gnn train --model gat' first"
+        )
     model = GNN(2, 100, 26, nnx.Rngs(42), batchsize=batchsize)
     state = nnx.state(model)
     restored = serialization.from_bytes(nnx.to_pure_dict(state), CHECKPOINT_PATH.read_bytes())

@@ -1,6 +1,6 @@
 """Preserved shared pipeline before CPU batching and prefetch optimizations.
 
-The standard training/testing entry points still use jax_variants.py.
+The maintained training/testing entry point uses :mod:`gnn.variants`.
 This module retains the label-rounding fix and four model-module choices.
 """
 

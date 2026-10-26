@@ -1,7 +1,7 @@
 """Compare three SVGD objectives from the same initial trajectories.
 
 Usage:
-    JAX_PLATFORMS=cpu .venv/bin/python run_svgd_experiment.py \
+    JAX_PLATFORMS=cpu .venv/bin/python -m planning \
         --scenario planning/examples/demo_scenario.json --output /tmp/svgd_results.json
 """
 

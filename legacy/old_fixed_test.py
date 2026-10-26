@@ -19,7 +19,8 @@ CHECKPOINT_PATH = PROJECT_DIR / "checkpoints" / "old_fixed_model.msgpack"
 def main():
     if not CHECKPOINT_PATH.exists():
         raise FileNotFoundError(
-            f"No checkpoint at {CHECKPOINT_PATH}; run jax_train_old_fixed.py first"
+            f"No checkpoint at {CHECKPOINT_PATH}; run "
+            "'python -m legacy.old_fixed_train' first"
         )
 
     records = orjson.loads((PROJECT_DIR / "testing_data.json").read_bytes())

@@ -2,8 +2,9 @@
 # Reproduce the earlier four-way comparison using the shared pipeline for all.
 set -euo pipefail
 
-PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON="${PROJECT_DIR}/.venv/bin/python"
+cd "${PROJECT_DIR}"
 export JAX_PLATFORMS="${JAX_PLATFORMS:-cuda}"
 
 # Check the backend before loading the full training dataset.
@@ -12,18 +13,17 @@ RUN_DIR="$(mktemp -d "${PROJECT_DIR}/checkpoints/full_run_XXXXXX")"
 echo "Results directory: ${RUN_DIR}"
 
 variants=(original_gat original_gatv2 new_gat new_gatv2)
-suffixes=('' _gatv2 _new _new_gatv2)
 for i in "${!variants[@]}"; do
     variant="${variants[$i]}"
-    suffix="${suffixes[$i]}"
     checkpoint="${RUN_DIR}/${variant}.msgpack"
     if [[ "${variant}" == original_* ]]; then
         convolution="${variant#original_}"
-        train_command=("${PYTHON}" -c 'import sys; from jax_variants import train_main; train_main("original", sys.argv.pop(1))' "${convolution}")
-        test_command=("${PYTHON}" -c 'import sys; from jax_variants import test_main; test_main("original", sys.argv.pop(1))' "${convolution}")
+        train_command=("${PYTHON}" -m gnn train --pipeline padded-shared --model "${convolution}")
+        test_command=("${PYTHON}" -m gnn test --pipeline padded-shared --model "${convolution}")
     else
-        train_command=("${PYTHON}" "${PROJECT_DIR}/jax_train${suffix}.py")
-        test_command=("${PYTHON}" "${PROJECT_DIR}/jax_test${suffix}.py")
+        convolution="${variant#new_}"
+        train_command=("${PYTHON}" -m gnn train --model "${convolution}")
+        test_command=("${PYTHON}" -m gnn test --model "${convolution}")
     fi
     echo "Training ${variant}"
     "${train_command[@]}" \

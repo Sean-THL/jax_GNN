@@ -1,4 +1,4 @@
-"""GATv2Conv model; checkpoints are managed by jax_variants.py."""
+"""Historical GATv2 model retained for reproducibility."""
 import flax.nnx as nnx
 from jraphx.nn.conv import GATv2Conv
 from jraphx.nn.pool import global_mean_pool

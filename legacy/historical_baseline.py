@@ -2,7 +2,7 @@
 
 This intentionally keeps the pasted script's data source, graph construction,
 batching, training order, loss, early stopping, and final-weight saving. It is
-separate from the four modern variants in jax_variants.py.
+separate from the four modern variants in :mod:`gnn.variants`.
 """
 
 import argparse

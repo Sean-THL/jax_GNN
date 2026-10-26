@@ -1,4 +1,4 @@
-"""GATv2Conv model; checkpoints are managed by jax_variants.py."""
+"""Weighted GATv2 model; checkpoints are managed by :mod:`gnn.variants`."""
 import flax.nnx as nnx
 from jraphx.nn.pool import global_mean_pool
 

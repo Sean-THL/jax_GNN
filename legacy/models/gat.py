@@ -3,8 +3,15 @@ import flax.nnx as nnx
 from jraphx.nn.conv import GATConv
 from jraphx.nn.pool import global_mean_pool
 import orbax.checkpoint as ocp
-import os
 import optax
+from pathlib import Path
+
+
+CHECKPOINT_ROOT = Path(__file__).resolve().parents[1] / "checkpoints"
+GAT_STATE = CHECKPOINT_ROOT / "original_gat_state"
+GAT_OPTIMIZER = CHECKPOINT_ROOT / "original_gat_optimizer"
+GATV2_STATE = CHECKPOINT_ROOT / "original_gatv2_state"
+GATV2_OPTIMIZER = CHECKPOINT_ROOT / "original_gatv2_optimizer"
 
 ## GNN model 
 class GNN(nnx.Module):
@@ -64,8 +71,8 @@ def save_model(model, optimizer):
     converts them into pure Python dictionaries, and writes them to disk using
     Orbax checkpointing. Two checkpoint directories are created:
 
-        - 'pure_dict_state'      : contains the model parameters/state
-        - 'pure_dict_optimizer'  : contains the optimizer state
+        - `legacy/checkpoints/original_gatv2_state`: model parameters/state
+        - `legacy/checkpoints/original_gatv2_optimizer`: optimizer state
 
     Notes
     -----
@@ -88,8 +95,8 @@ def save_model(model, optimizer):
         pure_dict_state = nnx.to_pure_dict(state)
 
         # saving the model and optimizer parameters
-        ckptr.save(os.path.abspath('pure_dict_state2'), pure_dict_state)
-        ckptr.save(os.path.abspath('pure_dict_optimzier2'), nnx.state(optimizer), force=True)
+        ckptr.save(GATV2_STATE.resolve(), pure_dict_state)
+        ckptr.save(GATV2_OPTIMIZER.resolve(), nnx.state(optimizer), force=True)
 
 def load_model(batchsize):
     """
@@ -104,11 +111,11 @@ def load_model(batchsize):
     Workflow
     --------
     1. Build an abstract model (with no actual parameter values).
-    2. Load the checkpointed model state (`pure_dict_state`) and insert it
+    2. Load the checkpointed model state and insert it
        into the abstract state tree.
     3. Reconstruct the full GNN model using the stored parameters.
     4. Build an abstract optimizer to obtain the correct optimizer state tree.
-    5. Load the checkpointed optimizer state (`pure_dict_optimizer`).
+    5. Load the checkpointed optimizer state.
     6. Initialize a real optimizer instance and update it with the restored state.
 
     Parameters
@@ -137,7 +144,7 @@ def load_model(batchsize):
     # load the params
     # Restore the checkpoint back to its `nnx.State` structure - need an abstract reference.
     checkpointer = ocp.StandardCheckpointer()
-    restored_pure_dict = checkpointer.restore(os.path.abspath('pure_dict_state'))
+    restored_pure_dict = checkpointer.restore(GAT_STATE.resolve())
     abstract_model = nnx.eval_shape(build_model)
     graphdef, abstract_state = nnx.split(abstract_model)
     nnx.replace_by_pure_dict(abstract_state, restored_pure_dict)
@@ -151,7 +158,7 @@ def load_model(batchsize):
 
     # Restore optimizer state
     optimizerState = checkpointer.restore(
-        os.path.abspath('pure_dict_optimzier'),
+        GAT_OPTIMIZER.resolve(),
         abstractOptStateTree
     )
 

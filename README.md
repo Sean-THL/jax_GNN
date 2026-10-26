@@ -9,6 +9,17 @@ The supplied labels are precomputed integer classes from 0 through 25. This
 repository trains and evaluates classifiers; it does not calculate
 r-robustness labels from first principles.
 
+## Quick start
+
+```bash
+python -m gnn                         # command overview
+python -m gnn test --model gatv2      # evaluate the maintained GATv2 model
+python -m planning --help             # planner options
+```
+
+See [docs/REPOSITORY_LAYOUT.md](docs/REPOSITORY_LAYOUT.md) for the boundary
+between maintained code, historical baselines, data, and generated artifacts.
+
 ## Code layout
 
 | Folder | Purpose |
@@ -17,13 +28,16 @@ r-robustness labels from first principles.
 | `conformal/` | CP scores, prediction sets, and lower bounds |
 | `planning/` | SVGD prototype, [runnable demo](planning/README.md), visualization, and example scenario |
 | `legacy/` | Historical padded pipeline, fixed original baseline, and prefetch-era variant |
+| `scripts/` | Reproducible multi-model experiment scripts |
+| `reports/` | Saved reports and representative experiment output |
 | `tests/` | Unit and integration checks |
 
-The top-level `jax_train_*.py`, `jax_test_*.py`, and `run_svgd_experiment.py`
-remain command entry points. Former top-level implementation module names remain
-import shims so existing notebooks and shell scripts continue to work. Data and
-checkpoints remain in the repository root. The old planner documentation,
-diagram, and demo paths also point to their maintained files under `planning/`.
+There are two maintained command surfaces: `python -m gnn` for classifiers and
+`python -m planning` for the planner. Historical implementations are available
+under `legacy/`; they no longer create duplicate modules in the repository root.
+Data remain at the root because the existing datasets and checkpoint metadata
+refer to those locations. Generated model checkpoints live under the ignored
+`checkpoints/` directory.
 
 ## Highlights
 
@@ -63,7 +77,8 @@ All four configurations use the same high-level classifier design so that the
 representation and attention layer can be compared fairly:
 
 - two node features: node degree and a constant value of 1;
-- one edge feature with a constant value of 1;
+- one edge feature: binary 1 on graph edges by default, or equation-(7)
+  connectivity weights in the planner's smooth mode;
 - three graph attention layers with four attention heads;
 - 100 hidden features and layer normalization after each attention layer;
 - global mean pooling; and
@@ -112,15 +127,15 @@ rounded during loading. Input JSON files are never modified.
 Train and test the compact GAT pipeline:
 
 ```bash
-python jax_train_new.py
-python jax_test_new.py
+python -m gnn train --model gat
+python -m gnn test --model gat
 ```
 
 Train and test the compact GATv2 pipeline:
 
 ```bash
-python jax_train_new_gatv2.py
-python jax_test_new_gatv2.py
+python -m gnn train --model gatv2
+python -m gnn test --model gatv2
 ```
 
 The default integrated configuration uses batch size 10, learning rate 0.005,
@@ -132,8 +147,8 @@ metadata beside each checkpoint.
 For a quick end-to-end check with a subset of the training data:
 
 ```bash
-python jax_train_new_gatv2.py --epochs 1 --limit 100
-python jax_test_new_gatv2.py
+python -m gnn train --model gatv2 --epochs 1 --limit 100
+python -m gnn test --model gatv2
 ```
 
 Common training options include `--epochs`, `--patience`, `--batch-size`,
@@ -147,20 +162,18 @@ CLI reference.
 The original padded GAT entry points remain available:
 
 ```bash
-python jax_train.py
-python jax_test.py
+python -m gnn train --pipeline historical --model gat
+python -m gnn test --pipeline historical --model gat
 ```
 
 The corresponding GATv2 baseline changes only the attention convolution:
 
 ```bash
-python jax_train_gatv2.py
-python jax_test_gatv2.py
+python -m gnn train --pipeline historical --model gatv2
+python -m gnn test --pipeline historical --model gatv2
 ```
 
-The longer `jax_train_original_*_baseline.py` and
-`jax_test_original_*_baseline.py` names are aliases for these historical
-workflows. Their checkpoints are `checkpoints/historical_gat.msgpack` and
+Their checkpoints are `checkpoints/historical_gat.msgpack` and
 `checkpoints/historical_gatv2.msgpack`; separate `.optimizer.msgpack` files
 contain their final optimizer states.
 
@@ -169,8 +182,8 @@ representation and 80/20 experiment design while correcting checkpoint and
 test-batching consistency:
 
 ```bash
-python jax_train_old_fixed.py
-python jax_test_old_fixed.py
+python -m legacy.old_fixed_train
+python -m legacy.old_fixed_test
 ```
 
 It saves its best validation checkpoint as
@@ -183,7 +196,7 @@ Run the four public configurations sequentially:
 
 ```bash
 mkdir -p checkpoints
-bash run_all_variants.sh
+bash scripts/run_all_variants.sh
 ```
 
 The script creates a unique directory under `checkpoints/full_run_*` and saves
@@ -191,20 +204,20 @@ checkpoints and logs for every configuration. It defaults to CUDA; on a
 CPU-only system, run:
 
 ```bash
-JAX_PLATFORMS=cpu bash run_all_variants.sh
+JAX_PLATFORMS=cpu bash scripts/run_all_variants.sh
 ```
 
 Environment variables can override the shared settings:
 
 ```bash
-BATCH_SIZE=32 BASELINE_EPOCHS=200 EPOCHS=200 bash run_all_variants.sh
+BATCH_SIZE=32 BASELINE_EPOCHS=200 EPOCHS=200 bash scripts/run_all_variants.sh
 ```
 
 For a controlled four-way experiment in which every model uses the integrated
 training engine and the same dataset split, run:
 
 ```bash
-bash run_shared_variants.sh
+bash scripts/run_shared_variants.sh
 ```
 
 ## Conformal evaluation
@@ -213,8 +226,8 @@ The integrated test scripts can report calibrated uncertainty through LAC
 prediction sets and one-sided lower bounds. For 90% desired marginal coverage:
 
 ```bash
-python jax_test_new.py --conformal-coverage 0.9
-python jax_test_new_gatv2.py --conformal-coverage 0.9
+python -m gnn test --model gat --conformal-coverage 0.9
+python -m gnn test --model gatv2 --conformal-coverage 0.9
 ```
 
 Use `--calibration-data PATH` to select a different independent calibration
@@ -247,8 +260,8 @@ required.
 | `planning/` | SVGD planner, experiment runner, example scenario, and pipeline diagram |
 | `legacy/` | Historical padded pipeline, fixed original baseline, and older variant |
 | `tests/` | Tests grouped away from runtime modules |
-| `run_all_variants.sh` | End-to-end comparison using public entry points |
-| `run_shared_variants.sh` | Matched-settings comparison using the integrated engine |
+| `scripts/run_all_variants.sh` | End-to-end comparison using public entry points |
+| `scripts/run_shared_variants.sh` | Matched-settings comparison using the integrated engine |
 
 ## Notes on performance
 

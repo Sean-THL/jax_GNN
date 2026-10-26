@@ -1,6 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
-checkpoints/
+/checkpoints/
 *.py[codz]
 *$py.class
 
@@ -207,3 +207,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 training_data.json
+
+# Local planner inputs and generated experiment output
+/planning/examples/my_scenario.json
+/reports/svgd_*_candidates_seed*.json
