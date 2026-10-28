@@ -32,7 +32,8 @@ from planning.connectivity import adjacency, smooth_adjacency
 class PlannerConfig:
     communication_radius: float
     minimum_separation: float
-    maximum_step: float
+    maximum_speed: float
+    sampling_time: float
     required_robustness: int
     connectivity_mode: str = "hard"
     connectivity_sigma: float | None = None
@@ -48,6 +49,10 @@ class PlannerConfig:
     svgd_step_size: float = 0.05
     cp_smoothing: float = 0.1
     cp_directions: int = 2
+
+    @property
+    def maximum_step(self) -> float:
+        return self.maximum_speed * self.sampling_time  # dt is sampling_time.
 
 
 def communication_records(
@@ -178,9 +183,12 @@ def _smooth_cost_single(waypoints, start, goal, config: PlannerConfig):
 
 def cp_cost(particles: np.ndarray, scorer: ConformalGraphScorer, config: PlannerConfig):
     p, steps, robots, _ = particles.shape
+    # The checkpoint and calibration data contain binary radius graphs, and
+    # exact r-robustness is defined on that hard support. Smooth connectivity
+    # remains the differentiable planning surrogate, not the CP input format.
     bounds = scorer.lower_bounds(
         particles.reshape(p * steps, robots, 2), config.communication_radius,
-        config.connectivity_mode, config.connectivity_sigma,
+        "hard", None,
     )
     minimum = bounds.reshape(p, steps).min(axis=1)
     shortfall = np.maximum(config.required_robustness - minimum, 0)
@@ -211,6 +219,7 @@ def plan(
     config: PlannerConfig,
     iterations: int,
     seed: int = 42,
+    record_particles: bool = False,
 ):
     """Optimize joint trajectories and return the lowest-cost candidate."""
     start, goal = np.asarray(start, np.float32), np.asarray(goal, np.float32)
@@ -221,8 +230,10 @@ def plan(
         raise ValueError("particles must have shape (particles, steps, robots, 2)")
     if len(start) < 2 or len(particles) < 2 or particles.shape[1] < 1:
         raise ValueError("at least two robots, two particles, and one step are required")
-    if not 0 <= config.required_robustness < len(start):
-        raise ValueError("required_robustness must be between zero and robots - 1")
+    if not 0 <= config.required_robustness < 26:
+        raise ValueError("required_robustness must be between zero and 25")
+    if config.maximum_speed <= 0 or config.sampling_time <= 0:
+        raise ValueError("maximum_speed and sampling_time must be positive")
     if config.connectivity_mode not in ("hard", "smooth"):
         raise ValueError("connectivity_mode must be 'hard' or 'smooth'")
     if config.connectivity_sigma is not None and config.connectivity_sigma <= 0:
@@ -235,33 +246,61 @@ def plan(
     smooth_gradient = jax.jit(jax.vmap(jax.grad(lambda w: _smooth_cost_single(w, jnp.asarray(start), jnp.asarray(goal), config))))
     rng = np.random.default_rng(seed)
     history = []
+    particle_snapshots = []
+    population_costs = []
+    population_bounds = []
+
+    def evaluated_population(current_particles):
+        total = np.array(smooth(jnp.asarray(current_particles)), dtype=np.float64)
+        lower = None
+        if config.cp_weight:
+            cp_values, lower = cp_cost(current_particles, scorer, config)
+            total += cp_values
+        return total, lower
+
+    # Preserve the best candidate seen. SVGD updates and particle repulsion are
+    # not guaranteed to improve the discrete CP objective monotonically.
+    total, lower = evaluated_population(particles)
+    if record_particles:
+        particle_snapshots.append(particles.copy())
+        population_costs.append(total.copy())
+        population_bounds.append(None if lower is None else lower.copy())
+    best_index = int(np.argmin(total))
+    best_waypoints = particles[best_index].copy()
+    best_cost = float(total[best_index])
+    best_bound = int(lower[best_index]) if lower is not None else None
+
     for _ in range(iterations):
         t0 = perf_counter()
         gradient = np.array(smooth_gradient(jnp.asarray(particles)), dtype=np.float64)
         if config.cp_weight:
             gradient += cp_spsa_gradient(particles, scorer, config, rng)
         particles += config.svgd_step_size * svgd_direction(particles, -gradient)
-        smooth_values = np.asarray(smooth(jnp.asarray(particles)))
-        if config.cp_weight:
-            cost, lower = cp_cost(particles, scorer, config)
-            total = cost + smooth_values
-            best_bound = int(lower[np.argmin(total)])
-        else:
-            total = smooth_values
-            best_bound = None
-        history.append({"best_cost": float(np.min(total)),
-                        "best_lower_bound": best_bound,
+        total, lower = evaluated_population(particles)
+        if record_particles:
+            particle_snapshots.append(particles.copy())
+            population_costs.append(total.copy())
+            population_bounds.append(None if lower is None else lower.copy())
+        iteration_index = int(np.argmin(total))
+        iteration_cost = float(total[iteration_index])
+        iteration_bound = int(lower[iteration_index]) if lower is not None else None
+        if iteration_cost < best_cost:
+            best_index = iteration_index
+            best_waypoints = particles[iteration_index].copy()
+            best_cost = iteration_cost
+            best_bound = iteration_bound
+        history.append({"best_cost": iteration_cost,
+                        "best_lower_bound": iteration_bound,
+                        "incumbent_cost": best_cost,
+                        "incumbent_lower_bound": best_bound,
                         "seconds": perf_counter() - t0})
-    total = np.array(smooth(jnp.asarray(particles)), dtype=np.float64)
-    if config.cp_weight:
-        cp_values, lower = cp_cost(particles, scorer, config)
-        total += cp_values
-    best = int(np.argmin(total))
-    if config.cp_weight:
-        best_bound = int(lower[best])
-    else:
-        # Baseline optimization must not query the GNN. The runner evaluates
-        # every selected trajectory with the same scorer after timing the plan.
-        best_bound = None
-    return particles[best], {"index": best, "cost": float(total[best]),
-                             "minimum_lower_bound": best_bound, "history": history}
+    report = {"index": best_index, "cost": best_cost,
+              "minimum_lower_bound": best_bound, "history": history}
+    if record_particles:
+        report.update(
+            particle_snapshots=np.asarray(particle_snapshots),
+            population_costs=np.asarray(population_costs),
+            population_bounds=(None if population_bounds[0] is None
+                               else np.asarray(population_bounds)),
+        )
+    return best_waypoints, report

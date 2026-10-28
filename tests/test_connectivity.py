@@ -66,7 +66,8 @@ class SmoothAdjacencyTests(unittest.TestCase):
         config = PlannerConfig(
             communication_radius=1.0,
             minimum_separation=0.1,
-            maximum_step=1.0,
+            maximum_speed=1.0,
+            sampling_time=1.0,
             required_robustness=1,
             connectivity_mode="smooth",
             goal_weight=0.0,

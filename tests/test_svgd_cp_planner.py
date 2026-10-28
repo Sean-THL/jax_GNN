@@ -12,7 +12,11 @@ from planning.svgd_cp_planner import (
 
 
 class _DegreeScorer:
+    def __init__(self):
+        self.calls = []
+
     def lower_bounds(self, positions, radius, mode="hard", sigma=None):
+        self.calls.append((mode, sigma))
         records = communication_records(positions, radius, mode, sigma)
         return np.asarray([int(record["features"][:, 0].min()) for record in records])
 
@@ -48,10 +52,25 @@ class PlannerTests(unittest.TestCase):
             [[[0., 0.], [0.5, 0.]], [[0., 0.], [0.5, 0.]]],
         ])
         config = PlannerConfig(communication_radius=1., minimum_separation=0.1,
-                               maximum_step=2., required_robustness=1, cp_weight=5.)
-        cost, lower = cp_cost(particles, _DegreeScorer(), config)
+                               maximum_speed=2., sampling_time=1.,
+                               required_robustness=1, cp_weight=5.)
+        scorer = _DegreeScorer()
+        cost, lower = cp_cost(particles, scorer, config)
         np.testing.assert_array_equal(lower, [0, 1])
         np.testing.assert_array_equal(cost, [5., 0.])
+        self.assertEqual(scorer.calls, [("hard", None)])
+
+    def test_cp_uses_hard_support_when_planning_mode_is_smooth(self):
+        particles = np.asarray([
+            [[[0., 0.], [0.5, 0.]]],
+            [[[0., 0.], [0.6, 0.]]],
+        ])
+        config = PlannerConfig(communication_radius=1., minimum_separation=0.1,
+                               maximum_speed=1., sampling_time=1.,
+                               required_robustness=1, connectivity_mode="smooth")
+        scorer = _DegreeScorer()
+        cp_cost(particles, scorer, config)
+        self.assertEqual(scorer.calls, [("hard", None)])
 
     def test_baseline_plans_without_graph_scorer(self):
         start = np.asarray([[0., 0.], [0.5, 0.]])
@@ -59,7 +78,8 @@ class PlannerTests(unittest.TestCase):
         particles = np.broadcast_to(goal, (2, 1, 2, 2)).copy()
         particles[1] += 0.01
         config = PlannerConfig(communication_radius=1., minimum_separation=0.1,
-                               maximum_step=1., required_robustness=1,
+                               maximum_speed=1., sampling_time=1.,
+                               required_robustness=1,
                                degree_weight=0., cp_weight=0.)
         waypoints, report = plan(start, goal, particles, None, config, iterations=1)
         self.assertEqual(waypoints.shape, (1, 2, 2))

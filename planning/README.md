@@ -18,13 +18,21 @@ The experiment compares three SVGD objectives using identical initial particles:
 | `gnn_cp` | Soft-degree costs plus a GATv2/CP robustness-shortfall penalty | Test the added learned signal |
 
 The GNN+CP run penalizes a trajectory if the **minimum conformal lower bound over its future
-waypoints** is below `required_robustness`. `cp_kind="one_sided"` uses the
+waypoints** is below `required_robustness`. For scenario files, this target is
+derived from the user-supplied adversary bound as
+`required_robustness = 2 * adversary_bound + 1`. `cp_kind="one_sided"` uses the
 integer residual score; `cp_kind="lac"` uses the lower endpoint of the LAC set.
 The discrete CP cost has no ordinary path derivative. The prototype estimates
 the gradient of a Gaussian-smoothed CP cost with two-sided random probes and
 applies an RBF SVGD update to the particles. The soft degree term provides a
 differentiable connectivity signal. In smooth mode it uses the equation-(7)
 adjacency; hard mode retains the original sigmoid degree heuristic.
+
+In both planning modes, GNN/CP certification uses the binary hard-radius
+support graph. The checkpoint and calibration records are binary graphs, and
+exact r-robustness is defined on that same support. Smooth weighted adjacency
+is used only as a differentiable planning surrogate; feeding it directly to
+the binary-trained CP scorer would violate calibration exchangeability.
 
 The GATv2 layer uses a scalar edge value both in its learned attention logit
 and as a multiplicative attention prior. Thus zero-weight dense edges cannot
@@ -33,8 +41,15 @@ to the original `jraphx` layer, so existing checkpoints load unchanged.
 
 ## Run the included demonstration
 
-The included scenario has 10 robots and **arbitrary coordinate units**. It is
-only for checking the pipeline, not a real communication or flight setup.
+The included scenario reproducibly samples a pool of 50 robots with
+**arbitrary coordinate units**. A compact 10-robot seed is generated first;
+each additional robot is accepted only when it has at least
+`required_robustness` neighbors within 80% of the communication radius. That
+20% distance margin protects the required edges from small waypoint noise.
+Goals apply one common translation to the starting formation, preserving all
+pairwise distances and hard communication edges. `--robots N` selects the
+same first N robots in every run. It is only for checking the pipeline, not a
+real communication or flight setup.
 From the repository root:
 
 ```bash
@@ -57,6 +72,44 @@ Use `--connectivity-sigma VALUE` to override `R^4 / ln(2)`. Sigma must be
 positive. These options can instead be stored as `connectivity_mode` and
 `connectivity_sigma` in the scenario's `config` object.
 
+The sampling interval is `sampling_time` (also accepted as `--dt`). The motion
+limit is computed rather than entered independently:
+
+```text
+maximum_step = maximum_speed * sampling_time
+```
+
+For example, this runs 20 robots, a 30-step horizon, and `dt=0.1`:
+
+```bash
+JAX_PLATFORMS=cuda .venv/bin/python -m planning \
+  --scenario planning/examples/demo_scenario.json \
+  --robots 20 --steps 30 --dt 0.1 \
+  --output reports/robots_20_steps_30_dt_0p1.json
+```
+
+Run the supplied sweep (5–50 robots in increments of 5;
+10–50 steps in increments of 10; and `dt` 0.05, 0.1, and 0.2) in hard mode with:
+
+```bash
+JAX_PLATFORMS=cuda bash planning/run_sweep.sh
+```
+
+Run the same grid in smooth mode with:
+
+```bash
+CONNECTIVITY_MODE=smooth JAX_PLATFORMS=cuda bash planning/run_sweep.sh
+```
+
+Results are stored in `reports/sweep/hard/` or `reports/sweep/smooth/`
+according to `CONNECTIVITY_MODE`, so the two sweeps cannot overwrite each
+other.
+
+This launches 150 experiments, each containing all three planning methods, so
+it can take a long time. Edit the three arrays at the top of `run_sweep.sh` to
+reduce or densify the grid. With `F=2`, `r_required=5`; runs with 5–8 robots
+are retained as infeasible controls and always report `Success=NO`.
+
 The runner creates 16 initial trajectories around a straight-line route using
 one fixed random seed. It gives the **same particles** to all three runs and
 uses the same SVGD iteration count. The simple and soft-degree objectives do
@@ -69,6 +122,11 @@ loading/calibrating the scorer and post-run evaluation are excluded. The JSON
 output records all three selected trajectories and metrics. Use `--help` to
 change particles, horizon, iterations, noise, seed, checkpoint, or calibration
 file. Use `JAX_PLATFORMS=cpu` if CUDA is unavailable.
+
+Unless `--noise` is supplied explicitly, initial waypoint noise is set to 10%
+of `maximum_speed * sampling_time`. Use `--noise-fraction` to change that
+fraction. This keeps random perturbations proportional to how far a robot is
+allowed to move in one sampling interval.
 
 ```mermaid
 flowchart LR
@@ -90,7 +148,9 @@ graphs, so the reported lower bound is not a safety certificate.
 To try your own setting, copy `planning/examples/demo_scenario.json`, replace `start`
 and `goal` with your robots' 2-D positions (same number and order of robots),
 and replace `config.communication_radius`, `minimum_separation`,
-`maximum_step`, and `required_robustness` with your measured/planned values.
+`maximum_speed`, `sampling_time`, and `adversary_bound` with your
+measured/planned values. For
+example, `adversary_bound: 2` produces `required_robustness: 5`.
 The radius, separation, maximum step, start, and goal must use the same length
 unit. The script will create the initial particles for you. For more than 10
 robots, the exact robustness field is `null` because exhaustive verification
@@ -112,8 +172,9 @@ particles = np.asarray(...)  # (particles, future_steps, robots, 2)
 config = PlannerConfig(
     communication_radius=2.0,   # replace with measured radio/connectivity rule
     minimum_separation=0.5,
-    maximum_step=1.0,
-    required_robustness=2,
+    maximum_speed=1.0,
+    sampling_time=0.1,          # dt; maximum_step is 1.0 * 0.1 = 0.1
+    required_robustness=5,      # 2F+1 for F=2
 )
 scorer = ConformalGraphScorer(
     Path("checkpoints/full_run_xK0R3I/new_gatv2.msgpack"),
