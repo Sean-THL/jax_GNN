@@ -20,6 +20,45 @@ python -m planning --help             # planner options
 See [docs/REPOSITORY_LAYOUT.md](docs/REPOSITORY_LAYOUT.md) for the boundary
 between maintained code, historical baselines, data, and generated artifacts.
 
+## Drone dynamics and spatial scale
+
+The default planner demo now uses a planar double integrator: position and
+velocity are rolled forward from bounded acceleration inputs. Sampling time
+is 0.05 s, the hard acceleration-norm bound is 1 m/s², and communication radius
+is 3 m. Input bounds are separate from the soft speed cost.
+
+Three scenarios provide 10 m, 25 m, and 50 m start-to-goal transfers, with
+10 s, 20 s, and 32 s horizons. `python -m planning` takes its default horizon
+from the scenario. Historical direct-waypoint experiments are preserved in
+`planning/examples/legacy_waypoint_scenario.json`. See the
+[planning README](planning/README.md#double-integrator-dynamics-and-larger-scenarios)
+for equations, run commands, and current constraint limitations.
+
+## Planner comparison
+
+The planner defaults to `gnn_cp_autodiff`, smooth connectivity, and soft goal
+arrival (`fixed_goal=false`). Its full cost includes goal, motion, collision,
+speed, smooth degree, terminal velocity, input effort, and the continuous GNN
+robustness surrogate. Four methods are available:
+
+| Result key | Method |
+| --- | --- |
+| `simple` | Goal, motion, collision, and speed costs, followed by a CP filter |
+| `soft_degree` | Smooth degree-shortfall guidance, followed by a CP filter |
+| `gnn_cp_spsa` | The same guidance plus a learned CP-bound penalty with an SPSA gradient; previously `gnn_cp` |
+| `gnn_cp_autodiff` | Smooth graph and GNN expected-class surrogate with direct position gradients, followed by hard CP filtering |
+
+`soft_degree` uses `degree_weight` for the smooth penalty and sets `cp_weight`
+to zero. It computes hard-graph CP bounds for acceptance, rather than using
+those bounds to guide movement. `gnn_cp_spsa` also uses `cp_weight` to guide
+movement through SPSA. All methods select the cheapest candidate whose CP
+bound meets the target at every future waypoint, or return no feasible
+trajectory. The first three retain their existing behavior. The fourth adds a continuous
+GNN surrogate; it does not differentiate the discrete CP lower bound itself.
+See [planning/README.md](planning/README.md) for the pipeline and run commands.
+Existing result files keep their historical method names. Some use the temporary
+name `cp_penalty` for what is now called `soft_degree`.
+
 ## Code layout
 
 | Folder | Purpose |

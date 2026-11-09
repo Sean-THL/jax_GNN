@@ -1,0 +1,5 @@
+{
+  "minimum_exact_r_across_rendered_frames": 5,
+  "distinct_rendered_graphs": 1,
+  "endpoint_max_error": 3.4332275390625e-05
+}

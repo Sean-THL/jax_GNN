@@ -1,0 +1,30 @@
+{
+  "simple": {
+    "maximum_acceleration_m_s2": 0.5970149636268616,
+    "position_residual_m": 1.582205295560038e-06,
+    "velocity_residual_m_s": 5.960464477539063e-08,
+    "goal_mean_error_m": 5.14984139954322e-06,
+    "minimum_cp_bound": 5
+  },
+  "soft_degree": {
+    "maximum_acceleration_m_s2": 0.6015741269175504,
+    "position_residual_m": 1.7296522855760402e-06,
+    "velocity_residual_m_s": 5.960464477539063e-08,
+    "goal_mean_error_m": 0.045489728450775146,
+    "minimum_cp_bound": 5
+  },
+  "gnn_cp_spsa": {
+    "maximum_acceleration_m_s2": 0.6015741269175504,
+    "position_residual_m": 1.7296522855760402e-06,
+    "velocity_residual_m_s": 5.960464477539063e-08,
+    "goal_mean_error_m": 0.045489728450775146,
+    "minimum_cp_bound": 5
+  },
+  "gnn_cp_autodiff": {
+    "maximum_acceleration_m_s2": 0.6044394266787658,
+    "position_residual_m": 1.8571689724896116e-06,
+    "velocity_residual_m_s": 5.960464477539063e-08,
+    "goal_mean_error_m": 0.07282406836748123,
+    "minimum_cp_bound": 5
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "description": "Planar double-integrator formation transfer: 10 m travel, SI units",
+  "units": {
+    "distance": "m",
+    "time": "s",
+    "input": "m/s^2"
+  },
+  "horizon_steps": 200,
+  "workspace": {
+    "lower": [
+      0,
+      0
+    ],
+    "upper": [
+      20,
+      10
+    ],
+    "enforced": false
+  },
+  "random_positions": {
+    "robot_count": 50,
+    "seed": 42,
+    "lower": [
+      1.0,
+      1.0
+    ],
+    "upper": [
+      9.0,
+      9.0
+    ],
+    "robust_seed_size": 10,
+    "goal_translation": [
+      10.0,
+      0.0
+    ]
+  },
+  "config": {
+    "communication_radius": 3.0,
+    "minimum_separation": 0.3,
+    "maximum_speed": 3.0,
+    "sampling_time": 0.05,
+    "adversary_bound": 2,
+    "cp_kind": "one_sided",
+    "cp_coverage": 0.9,
+    "cp_weight": 5.0,
+    "svgd_step_size": 0.01,
+    "cp_directions": 2,
+    "dynamics": "double_integrator",
+    "maximum_acceleration": 1.0,
+    "initial_velocity": [
+      0.0,
+      0.0
+    ],
+    "goal_velocity": [
+      0.0,
+      0.0
+    ],
+    "goal_weight": 10.0,
+    "terminal_velocity_weight": 2.0,
+    "control_weight": 0.01,
+    "fixed_goal": false,
+    "cp_gradient": "autodiff"
+  }
+}

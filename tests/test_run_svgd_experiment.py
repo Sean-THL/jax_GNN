@@ -1,9 +1,11 @@
 import unittest
+from dataclasses import replace
 
 import numpy as np
 
 from planning.run_experiment import (
     comparison_configs,
+    trajectory_summary,
     config_from_scenario,
     exact_robustness,
     initial_trajectories,
@@ -13,6 +15,31 @@ from planning.svgd_cp_planner import PlannerConfig, communication_records
 
 
 class ExperimentTests(unittest.TestCase):
+    def test_independent_goals_are_repeatable_and_not_a_translation(self):
+        scenario = {
+            "random_positions": {"robot_count": 10, "seed": 42,
+                                 "lower": [2., 2.], "upper": [10., 10.], "robust_seed_size": 10},
+            "random_goals": {"lower": [70., 2.], "upper": [78., 10.], "seed": 137},
+            "config": {"minimum_separation": 0.3, "communication_radius": 3.},
+        }
+        start, goal = scenario_positions(scenario, 10, 5, 3.)
+        start2, goal2 = scenario_positions(scenario, 10, 5, 3.)
+        np.testing.assert_array_equal(start, start2)
+        np.testing.assert_array_equal(goal, goal2)
+        self.assertGreater(np.ptp(goal-start, axis=0).max(), 0.5)
+        self.assertTrue((np.linalg.norm(goal-start, axis=1) > 60).all())
+        for positions in (start, goal):
+            distances = np.linalg.norm(positions[:, None]-positions[None, :], axis=-1)
+            np.fill_diagonal(distances, np.inf)
+            self.assertGreaterEqual(distances.min(), 0.3-1e-6)
+            self.assertGreaterEqual((distances <= 3.).sum(axis=1).min(), 5)
+
+    def test_summary_handles_no_feasible_trajectory(self):
+        summary = trajectory_summary(None, None, None, None, None, 0.25)
+        self.assertIsNone(summary["waypoints"])
+        self.assertFalse(summary["meets_predicted_target"])
+        self.assertEqual(summary["status"], "no_feasible_trajectory")
+
     def test_required_robustness_is_derived_from_adversary_bound(self):
         config, adversary_bound = config_from_scenario({
             "communication_radius": 1.0,
@@ -23,6 +50,7 @@ class ExperimentTests(unittest.TestCase):
         })
         self.assertEqual(adversary_bound, 2)
         self.assertEqual(config.required_robustness, 5)
+        self.assertEqual(config.connectivity_mode, "smooth")
         self.assertAlmostEqual(config.maximum_step, 0.2)
 
     def test_scenario_cannot_override_derived_robustness(self):
@@ -79,13 +107,15 @@ class ExperimentTests(unittest.TestCase):
         config = PlannerConfig(communication_radius=1., minimum_separation=0.1,
                                maximum_speed=1., sampling_time=1.,
                                required_robustness=1)
-        simple, degree, learned = comparison_configs(config)
-        self.assertEqual([simple[0], degree[0], learned[0]],
-                         ["simple", "soft_degree", "gnn_cp"])
+        simple, degree, learned, automatic = comparison_configs(config)
+        self.assertEqual([simple[0], degree[0], learned[0], automatic[0]],
+                         ["simple", "soft_degree", "gnn_cp_spsa", "gnn_cp_autodiff"])
         self.assertEqual((simple[1].degree_weight, simple[1].cp_weight), (0., 0.))
         self.assertEqual((degree[1].degree_weight, degree[1].cp_weight),
                          (config.degree_weight, 0.))
-        self.assertEqual(learned[1], config)
+        self.assertEqual(learned[1], replace(config, cp_gradient="spsa"))
+        self.assertEqual(automatic[1].cp_gradient, "autodiff")
+        self.assertEqual(automatic[1].connectivity_mode, "smooth")
         self.assertEqual(simple[1].goal_weight, config.goal_weight)
 
 

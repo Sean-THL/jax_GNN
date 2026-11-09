@@ -1,0 +1,359 @@
+[
+  {
+    "step": 0,
+    "time": 0.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": null
+  },
+  {
+    "step": 1,
+    "time": 0.2,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 2,
+    "time": 0.4,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 3,
+    "time": 0.6000000000000001,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 4,
+    "time": 0.8,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 5,
+    "time": 1.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 6,
+    "time": 1.2000000000000002,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 7,
+    "time": 1.4000000000000001,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 8,
+    "time": 1.6,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 9,
+    "time": 1.8,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 10,
+    "time": 2.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 11,
+    "time": 2.2,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 12,
+    "time": 2.4000000000000004,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 13,
+    "time": 2.6,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 14,
+    "time": 2.8000000000000003,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 15,
+    "time": 3.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 16,
+    "time": 3.2,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 17,
+    "time": 3.4000000000000004,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 18,
+    "time": 3.6,
+    "exact_r": 5,
+    "minimum_degree": 8,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 19,
+    "time": 3.8000000000000003,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 20,
+    "time": 4.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 21,
+    "time": 4.2,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 22,
+    "time": 4.4,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 23,
+    "time": 4.6000000000000005,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 24,
+    "time": 4.800000000000001,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 25,
+    "time": 5.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 26,
+    "time": 5.2,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 27,
+    "time": 5.4,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 28,
+    "time": 5.6000000000000005,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 29,
+    "time": 5.800000000000001,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 30,
+    "time": 6.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 31,
+    "time": 6.2,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 32,
+    "time": 6.4,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 33,
+    "time": 6.6000000000000005,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 34,
+    "time": 6.800000000000001,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 35,
+    "time": 7.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 36,
+    "time": 7.2,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 37,
+    "time": 7.4,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 38,
+    "time": 7.6000000000000005,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 39,
+    "time": 7.800000000000001,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 40,
+    "time": 8.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 41,
+    "time": 8.200000000000001,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 42,
+    "time": 8.4,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 43,
+    "time": 8.6,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 44,
+    "time": 8.8,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 45,
+    "time": 9.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 46,
+    "time": 9.200000000000001,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 47,
+    "time": 9.4,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 48,
+    "time": 9.600000000000001,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 49,
+    "time": 9.8,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  },
+  {
+    "step": 50,
+    "time": 10.0,
+    "exact_r": 5,
+    "minimum_degree": 9,
+    "cp_lower_bound": 5
+  }
+]

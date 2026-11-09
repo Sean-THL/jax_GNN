@@ -1,0 +1,35 @@
+{
+  "calibration_quantile": 0.0,
+  "samples": [
+    {
+      "sample": "initial start",
+      "cp_bound": 0,
+      "minimum_degree": 32,
+      "maximum_degree": 88
+    },
+    {
+      "sample": "first future waypoint",
+      "cp_bound": 0,
+      "minimum_degree": 32,
+      "maximum_degree": 88
+    },
+    {
+      "sample": "middle waypoint",
+      "cp_bound": 0,
+      "minimum_degree": 38,
+      "maximum_degree": 99
+    },
+    {
+      "sample": "last waypoint",
+      "cp_bound": 0,
+      "minimum_degree": 30,
+      "maximum_degree": 89
+    },
+    {
+      "sample": "goal formation",
+      "cp_bound": 0,
+      "minimum_degree": 30,
+      "maximum_degree": 89
+    }
+  ]
+}

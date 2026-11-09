@@ -1,0 +1,25 @@
+{
+  "robots": 50,
+  "particles": 16,
+  "steps": 10,
+  "cp_directions": 2,
+  "gradient_matches": true,
+  "timings_seconds": {
+    "separate": [
+      0.8922991899999033,
+      0.6850297710006998,
+      1.1208329100008996
+    ],
+    "batched": [
+      1.0190262050000456,
+      1.0057224890006182,
+      0.5922681789998023
+    ]
+  },
+  "median_seconds": {
+    "separate": 0.8922991899999033,
+    "batched": 1.0057224890006182
+  },
+  "scope": "SPSA CP gradient only; warm-up excluded; same scorer, particles and random seed",
+  "speedup": 0.887222071454897
+}

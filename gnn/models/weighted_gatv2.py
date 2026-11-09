@@ -9,6 +9,17 @@ from jraphx.utils import scatter_add, scatter_softmax
 from jraphx.utils.loop import add_self_loops as add_self_loops_fn
 
 
+def weighted_attention_softmax(logits, targets, weights, num_nodes):
+    """Normalize in log space so silent edges cannot cause 0/0 attention."""
+    heads = logits.shape[1]
+    expanded_targets = jnp.repeat(targets, heads)
+    expanded_weights = jnp.repeat(weights, heads)
+    log_weights = jnp.log(jnp.maximum(expanded_weights, 1e-30))
+    masked_logits = jnp.where(expanded_weights > 0,
+                              logits.reshape(-1) + log_weights, -jnp.inf)
+    return scatter_softmax(masked_logits, expanded_targets, dim_size=num_nodes).reshape(-1, heads)
+
+
 class WeightedGATv2Conv(GATv2Conv):
     """Checkpoint-compatible GATv2 whose scalar edge feature gates messages.
 
@@ -56,25 +67,16 @@ class WeightedGATv2Conv(GATv2Conv):
             leaky_relu(combined, negative_slope=self.negative_slope) * self.att.value,
             axis=-1,
         )
-        expanded_col = jnp.repeat(col, heads)
-        attention = scatter_softmax(
-            logits.reshape(-1), expanded_col, dim_size=num_nodes
-        )
-
         if edge_attr is None:
-            edge_weight = jnp.ones(row.shape, dtype=attention.dtype)
+            edge_weight = jnp.ones(row.shape, dtype=logits.dtype)
         else:
-            edge_weight = edge_attr[:, 0].astype(attention.dtype)
+            edge_weight = edge_attr[:, 0].astype(logits.dtype)
         # jraphx adds zero-feature self loops.  They must remain active, while
         # zero-weight off-diagonal edges in the fixed dense graph stay silent.
         edge_weight = jnp.where(row == col, 1.0, edge_weight)
-        expanded_weight = jnp.repeat(edge_weight, heads)
-        weighted_attention = attention * expanded_weight
-        normalizer = scatter_add(
-            weighted_attention, expanded_col, dim_size=num_nodes
-        )
-        weighted_attention = weighted_attention / normalizer[expanded_col]
-        attention = weighted_attention.reshape(-1, heads)
+        # Equivalent to softmax(logits) * weight / sum(...) for ordinary
+        # inputs, without underflow when a zero-weight edge has a huge logit.
+        attention = weighted_attention_softmax(logits, col, edge_weight, num_nodes)
 
         if self.dropout is not None:
             attention = self.dropout(attention)

@@ -13,11 +13,11 @@ from matplotlib.patches import Circle
 import numpy as np
 
 
-METHODS = ("simple", "soft_degree", "gnn_cp")
+METHODS = ("simple", "soft_degree", "gnn_cp_spsa")
 METHOD_TITLES = {
     "simple": "Simple objective",
-    "soft_degree": "Soft-degree objective",
-    "gnn_cp": "GNN + conformal objective",
+    "soft_degree": "Soft degree (smooth guidance + CP filter)",
+    "gnn_cp_spsa": "GNN + CP with SPSA",
 }
 
 
@@ -39,6 +39,10 @@ def main():
     args = parser.parse_args()
 
     report = json.loads(args.input.read_text())
+    # Accept saved experiments from before the planner-name change.
+    for old, new in (("cp_penalty", "soft_degree"), ("gnn_cp", "gnn_cp_spsa")):
+        if new not in report["results"] and old in report["results"]:
+            report["results"][new] = report["results"][old]
     config = report["config"]
     start = np.asarray(report["start"], dtype=float)
     goal = np.asarray(report["goal"], dtype=float)

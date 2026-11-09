@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 from jraphx.nn.conv import GATv2Conv
 
-from gnn.models.weighted_gatv2 import WeightedGATv2Conv
+from gnn.models.weighted_gatv2 import WeightedGATv2Conv, weighted_attention_softmax
 from planning.connectivity import smooth_adjacency
 from planning.svgd_cp_planner import PlannerConfig, _smooth_cost_single
 
@@ -84,6 +84,16 @@ class SmoothAdjacencyTests(unittest.TestCase):
 
 
 class WeightedGATv2Tests(unittest.TestCase):
+    def test_zero_weight_large_logits_do_not_underflow_active_attention(self):
+        logits = jnp.asarray([[10000., 10000.], [0., 0.]])
+        targets = jnp.asarray([0, 0])
+        weights = jnp.asarray([0., 1.])
+        value = weighted_attention_softmax(logits, targets, weights, 1)
+        np.testing.assert_allclose(value, [[0., 0.], [0.5, 0.5]])
+        gradient = jax.grad(lambda w: weighted_attention_softmax(
+            logits, targets, w, 1)[1, 0])(weights)
+        self.assertTrue(np.isfinite(np.asarray(gradient)).all())
+
     def test_binary_edges_match_upstream_layer(self):
         kwargs = dict(in_features=2, out_features=2, heads=2, edge_dim=1)
         original = GATv2Conv(**kwargs, rngs=nnx.Rngs(7))

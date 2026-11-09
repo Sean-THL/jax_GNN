@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Legacy waypoint sweep; use the double-integrator scenarios for physical transfers.
 # Representative values across the requested ranges. Add every integer to the
 # arrays if a denser (and much more expensive) sweep is needed.
 robots=( 10 20 30 40 50)
 horizons=(10 20 30 40 50)
 sampling_times=(0.05 0.1 0.2)
 
-connectivity_mode=${CONNECTIVITY_MODE:-hard}
+connectivity_mode=${CONNECTIVITY_MODE:-smooth}
 if [[ "$connectivity_mode" != "hard" && "$connectivity_mode" != "smooth" ]]; then
   echo "CONNECTIVITY_MODE must be hard or smooth" >&2
   exit 2
@@ -20,8 +21,9 @@ for robot_count in "${robots[@]}"; do
     for dt in "${sampling_times[@]}"; do
       dt_label=${dt/./p}
       JAX_PLATFORMS="${JAX_PLATFORMS:-cpu}" .venv/bin/python -m planning \
-        --scenario planning/examples/demo_scenario.json \
+        --scenario planning/examples/legacy_waypoint_scenario.json \
         --robots "$robot_count" \
+        --methods simple soft_degree gnn_cp_spsa \
         --connectivity-mode "$connectivity_mode" \
         --steps "$horizon" \
         --dt "$dt" \

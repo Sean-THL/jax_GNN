@@ -1,4 +1,4 @@
-"""Compare three SVGD objectives from the same initial trajectories.
+"""Compare four SVGD objectives from the same initial particles.
 
 Usage:
     JAX_PLATFORMS=cpu .venv/bin/python -m planning \
@@ -17,12 +17,14 @@ import jax.numpy as jnp
 import numpy as np
 
 from planning.svgd_cp_planner import (
+    MAX_PLANNING_ROBOTS,
     ConformalGraphScorer,
     PlannerConfig,
     _smooth_cost_single,
     communication_records,
     plan,
 )
+from planning.dynamics import initial_controls
 
 
 PROJECT = Path(__file__).resolve().parent.parent
@@ -52,7 +54,11 @@ def _sample_degree_constrained_pool(
 ):
     """Grow a pool whose feasible prefixes have minimum degree at least r."""
     if seed_size < minimum_degree + 1 or seed_size > count:
-        raise ValueError("robust_seed_size must be between r + 1 and robot_count")
+        raise ValueError(
+            f"r={minimum_degree} requires robust_seed_size between {minimum_degree+1} "
+            f"and robot_count={count}; configured robust_seed_size={seed_size}. "
+            "Update random_positions.robust_seed_size in the scenario JSON."
+        )
     # Build required edges inside 80% of the hard radius. The unused 20%
     # provides clearance for the small waypoint perturbations added later.
     protected_radius = 0.8 * radius
@@ -101,8 +107,8 @@ def scenario_positions(
         spec = scenario["random_positions"]
         pool_size = int(spec["robot_count"])
         robot_count = pool_size if requested_robots is None else requested_robots
-        if not 2 <= robot_count <= pool_size <= 50:
-            raise ValueError("robots must be between 2 and the configured pool size (at most 50)")
+        if not 2 <= robot_count <= pool_size <= MAX_PLANNING_ROBOTS:
+            raise ValueError(f"robots must be between 2 and the configured pool size (at most {MAX_PLANNING_ROBOTS})")
         lower = np.asarray(spec.get("lower", [0.0, 0.0]), dtype=np.float32)
         upper = np.asarray(spec.get("upper", [1.0, 1.0]), dtype=np.float32)
         if lower.shape != (2,) or upper.shape != (2,) or np.any(lower >= upper):
@@ -124,10 +130,21 @@ def scenario_positions(
             pool_size, lower, upper, minimum_separation, radius,
             target_degree, seed_size, np.random.default_rng(seed),
         )
-        translation = np.asarray(spec.get("goal_translation", [0.0, 0.0]), dtype=np.float32)
-        if translation.shape != (2,):
-            raise ValueError("goal_translation must be a 2-D vector")
-        goal_pool = start_pool + translation
+        if "random_goals" in scenario:
+            goals = scenario["random_goals"]
+            goal_lower = np.asarray(goals["lower"], dtype=np.float32)
+            goal_upper = np.asarray(goals["upper"], dtype=np.float32)
+            if goal_lower.shape != (2,) or goal_upper.shape != (2,) or np.any(goal_lower >= goal_upper):
+                raise ValueError("random_goals bounds must define a valid 2-D box")
+            goal_pool = _sample_degree_constrained_pool(
+                pool_size, goal_lower, goal_upper, minimum_separation, radius,
+                target_degree, seed_size, np.random.default_rng(int(goals.get("seed", seed+1))),
+            )
+        else:
+            translation = np.asarray(spec.get("goal_translation", [0.0, 0.0]), dtype=np.float32)
+            if translation.shape != (2,):
+                raise ValueError("goal_translation must be a 2-D vector")
+            goal_pool = start_pool + translation
         return start_pool[:robot_count], goal_pool[:robot_count]
 
     start = np.asarray(scenario["start"], dtype=np.float32)
@@ -156,7 +173,8 @@ def comparison_configs(config):
     return (
         ("simple", replace(config, degree_weight=0.0, cp_weight=0.0)),
         ("soft_degree", replace(config, cp_weight=0.0)),
-        ("gnn_cp", config),
+        ("gnn_cp_spsa", replace(config, cp_gradient="spsa")),
+        ("gnn_cp_autodiff", replace(config, cp_gradient="autodiff", connectivity_mode="smooth")),
     )
 
 
@@ -202,6 +220,15 @@ def exact_robustness(record):
 
 
 def trajectory_summary(waypoints, start, goal, scorer, config, wall_seconds):
+    if waypoints is None:
+        return {
+            "status": "no_feasible_trajectory", "waypoints": None,
+            "meets_predicted_target": False, "wall_seconds": float(wall_seconds),
+            "minimum_lower_bound": None, "minimum_exact_robustness": None,
+            "minimum_hard_degree": None, "goal_mean_distance": None,
+            "largest_step": None, "smallest_separation": None,
+            "total_shared_objective": None,
+        }
     # Exact r-robustness remains defined on the hard support graph.
     exact_records = communication_records(waypoints, config.communication_radius)
     # Certify the same binary support graph used by exact r-robustness and by
@@ -256,28 +283,36 @@ def main():
                         default=PROJECT / "checkpoints/full_run_xK0R3I/new_gatv2.msgpack")
     parser.add_argument("--calibration", type=Path, default=PROJECT / "calib_data.json")
     parser.add_argument("--particles", type=int, default=16)
-    parser.add_argument("--robots", type=int, choices=range(5, 51),
+    parser.add_argument("--robots", type=int, choices=range(5, MAX_PLANNING_ROBOTS+1),
                         help="Use the first N robots from the generated pool")
-    parser.add_argument("--steps", type=int, default=10,
-                        help="Planning horizon in discrete sampling steps (default: 10)")
+    parser.add_argument("--steps", type=int,
+                        help="Planning horizon (default: scenario horizon_steps, otherwise 10)")
     parser.add_argument("--sampling-time", "--dt", dest="sampling_time", type=float,
                         help="Sampling time dt in seconds (overrides the scenario)")
     parser.add_argument("--maximum-speed", type=float,
                         help="Maximum speed in distance units/second (overrides the scenario)")
+    parser.add_argument("--maximum-acceleration", type=float,
+                        help="Hard acceleration norm bound for double-integrator dynamics")
     parser.add_argument("--iterations", type=int, default=5)
     parser.add_argument("--noise", type=float,
                         help="Absolute waypoint noise (overrides --noise-fraction)")
     parser.add_argument("--noise-fraction", type=float, default=0.1,
                         help="Default noise as a fraction of maximum_speed * dt")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--methods", nargs="+",
+                        choices=("simple", "soft_degree", "gnn_cp_spsa", "gnn_cp_autodiff"),
+                        default=["gnn_cp_autodiff"],
+                        help="Run these planners (default: gnn_cp_autodiff)")
     parser.add_argument("--connectivity-mode", choices=("hard", "smooth"),
-                        help="Override the scenario connectivity mode (default: hard)")
+                        help="Override the scenario connectivity mode (default: smooth)")
     parser.add_argument("--connectivity-sigma", type=float,
                         help="Smooth sigma (default: R^4 / ln(2))")
     parser.add_argument("--output", type=Path, help="Optional JSON file for both trajectories and metrics")
     args = parser.parse_args()
 
     scenario = json.loads(args.scenario.read_text())
+    if args.steps is None:
+        args.steps = int(scenario.get("horizon_steps", 10))
     try:
         config, adversary_bound = config_from_scenario(scenario["config"])
         start, goal = scenario_positions(
@@ -291,37 +326,52 @@ def main():
         config = replace(config, sampling_time=args.sampling_time)
     if args.maximum_speed is not None:
         config = replace(config, maximum_speed=args.maximum_speed)
+    if args.maximum_acceleration is not None:
+        config = replace(config, maximum_acceleration=args.maximum_acceleration)
     if args.connectivity_mode is not None:
         config = replace(config, connectivity_mode=args.connectivity_mode)
     if args.connectivity_sigma is not None:
         config = replace(config, connectivity_sigma=args.connectivity_sigma)
     if config.degree_weight <= 0 or config.cp_weight <= 0:
-        parser.error("three-way comparison requires positive degree_weight and cp_weight")
+        parser.error("comparison requires positive degree_weight and cp_weight")
     if config.connectivity_sigma is not None and config.connectivity_sigma <= 0:
         parser.error("connectivity-sigma must be positive")
     if config.sampling_time <= 0 or config.maximum_speed <= 0:
         parser.error("sampling-time and maximum-speed must be positive")
+    if config.dynamics == "double_integrator" and config.maximum_acceleration <= 0:
+        parser.error("maximum-acceleration must be positive")
     if args.noise_fraction < 0:
         parser.error("noise-fraction must be nonnegative")
     trajectory_noise = (
         args.noise if args.noise is not None
-        else args.noise_fraction * config.maximum_step
+        else args.noise_fraction * (config.maximum_acceleration if config.dynamics == "double_integrator" else config.maximum_step)
     )
     if trajectory_noise < 0:
         parser.error("noise must be nonnegative")
-    particles = initial_trajectories(
-        start, goal, args.particles, args.steps, trajectory_noise, args.seed
-    )
+    if config.dynamics == "double_integrator":
+        particles = initial_controls(start, goal, args.particles, args.steps, config, trajectory_noise, args.seed)
+        distance = np.linalg.norm(goal-start, axis=-1).max()
+        if np.allclose(config.initial_velocity, 0) and distance > 0.5*config.maximum_acceleration*(args.steps*config.sampling_time)**2:
+            parser.error("horizon too short to reach these goals from rest under the acceleration bound")
+    else:
+        particles = initial_trajectories(start, goal, args.particles, args.steps, trajectory_noise, args.seed)
     scorer = ConformalGraphScorer(
         args.checkpoint, args.calibration, config.cp_coverage, config.cp_kind
     )
 
+    runs = [(name, settings) for name, settings in comparison_configs(config)
+            if args.methods is None or name in args.methods]
+    if any(name == "gnn_cp_autodiff" for name, _ in runs) and (
+        scorer.kind != "one_sided" or not np.isfinite(scorer.quantile)
+    ):
+        parser.error("gnn_cp_autodiff requires one_sided CP with a finite quantile; "
+                     "use --methods to select the other planners")
     results = {}
-    for name, run_config in comparison_configs(config):
+    for name, run_config in runs:
         began = perf_counter()
         trajectory, planner_report = plan(
             start, goal, particles,
-            scorer if run_config.cp_weight else None,
+            scorer,
             run_config, args.iterations, args.seed,
         )
         elapsed = perf_counter() - began
@@ -329,6 +379,17 @@ def main():
             trajectory, start, goal, scorer, config, elapsed
         )
         results[name]["planner_report"] = planner_report
+        results[name]["planner_config"] = asdict(run_config)
+        results[name]["cp_scale_status"] = (
+            "experimental_above_50_training_calibration_nodes" if len(start) > 50
+            else "within_original_node_count_range"
+        )
+        if run_config.dynamics == "double_integrator" and trajectory is not None:
+            results[name]["dynamics_metrics"] = {
+                key: planner_report[key] for key in (
+                    "maximum_acceleration_norm", "maximum_velocity_norm", "terminal_velocity_mean_norm"
+                )
+            }
 
     print(f"Scenario: {scenario.get('description', args.scenario.name)}")
     print(f"Robots: {len(start)}; particles: {args.particles}; future steps: {args.steps}; iterations: {args.iterations}")
@@ -336,27 +397,35 @@ def main():
           f"F: {adversary_bound}; required robustness (2F+1): {config.required_robustness}")
     print(f"Sampling time dt: {config.sampling_time:g}; maximum speed: {config.maximum_speed:g}; "
           f"maximum step = speed * dt: {config.maximum_step:g}")
-    print(f"Initial trajectory noise: {trajectory_noise:g} "
-          f"({trajectory_noise / config.maximum_step:.0%} of maximum step)")
+    if config.dynamics == "double_integrator":
+        print(f"Dynamics: double integrator; hard acceleration norm <= {config.maximum_acceleration:g} m/s^2; "
+              f"horizon {args.steps * config.sampling_time:g} s; speed is a soft cost")
+    print(f"Initial particle noise: {trajectory_noise:g} "
+          f"({'acceleration units' if config.dynamics == 'double_integrator' else 'position units'})")
     if config.required_robustness > (len(start) + 1) // 2:
         print(f"WARNING: r={config.required_robustness} is infeasible for {len(start)} robots; "
               "this run will report Success=NO.")
     sigma_text = "R^4 / ln(2)" if config.connectivity_sigma is None else str(config.connectivity_sigma)
     print(f"Connectivity: {config.connectivity_mode}; sigma: {sigma_text if config.connectivity_mode == 'smooth' else 'n/a'}")
     print("CP certification graph: hard radius support (matches training and exact r)")
+    if len(start) > 50:
+        print("CP scale: experimental; 100-robot support does not extend the checkpoint's <=50-node calibration.")
     print("Method        CP bound   Min degree   Success   Exact r   Goal error   Max step   Min separation   Shared cost   Seconds")
-    for name, _ in comparison_configs(config):
+    for name, _ in runs:
         value = results[name]
+        if value["waypoints"] is None:
+            print(f"{name:15} no feasible trajectory (Success=NO)")
+            continue
         exact = "n/a" if value["minimum_exact_robustness"] is None else str(value["minimum_exact_robustness"])
         success = "YES" if value["meets_predicted_target"] else "NO"
-        print(f"{name:13} {value['minimum_lower_bound']:8d} "
+        print(f"{name:15} {value['minimum_lower_bound']:8d} "
               f"{value['minimum_hard_degree']:12d} {success:>9} {exact:>9} "
               f"{value['goal_mean_distance']:12.3f} {value['largest_step']:10.3f} "
               f"{value['smallest_separation']:16.3f} {value['total_shared_objective']:13.3f} "
               f"{value['wall_seconds']:9.3f}")
     print("Exact r uses exhaustive subset checks only for scenarios with at most 10 robots.")
-    print("Seconds measures SVGD optimization only; scorer setup and evaluation are excluded.")
-    print("Maximum step and minimum separation are soft penalties; inspect them against the scenario limits.")
+    print("Seconds measures optimization and final CP filtering; scorer setup and evaluation are excluded.")
+    print("Speed, minimum separation, and terminal goals are soft costs; double-integrator acceleration is hard bounded.")
     print("The CP bound is a prediction, not a guarantee for the trajectory selected by search.")
 
     if args.output:
@@ -366,7 +435,8 @@ def main():
             "calibration": str(args.calibration),
             "parameters": {"robots": len(start), "particles": args.particles, "steps": args.steps,
                            "iterations": args.iterations, "noise": trajectory_noise,
-                           "noise_fraction": trajectory_noise / config.maximum_step,
+                           "noise_fraction": trajectory_noise / (config.maximum_acceleration if config.dynamics == "double_integrator" else config.maximum_step),
+                           "noise_units": "m/s^2" if config.dynamics == "double_integrator" else "position units",
                            "seed": args.seed},
             "config": {"adversary_bound": adversary_bound,
                        "required_robustness": config.required_robustness,

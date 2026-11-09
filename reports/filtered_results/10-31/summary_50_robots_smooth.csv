@@ -1,0 +1,4 @@
+method,success,solving_time_seconds,minimum_cp_bound,minimum_exact_robustness,passing_candidates,evaluated_candidates
+simple,True,6.034327209999901,9,,96,96
+soft_degree,True,2.1502573200004917,11,,96,96
+gnn_cp,True,6.142935242000021,11,,20,96

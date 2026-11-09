@@ -27,6 +27,8 @@ from conformal.scores import (
 from gnn.variants import model_class, predict_probabilities, prepare_records, read_records
 from planning.connectivity import adjacency, smooth_adjacency
 
+MAX_PLANNING_ROBOTS = 100
+
 
 @dataclass(frozen=True)
 class PlannerConfig:
@@ -35,7 +37,7 @@ class PlannerConfig:
     maximum_speed: float
     sampling_time: float
     required_robustness: int
-    connectivity_mode: str = "hard"
+    connectivity_mode: str = "smooth"
     connectivity_sigma: float | None = None
     cp_kind: str = "one_sided"  # or "lac"
     cp_coverage: float = 0.9
@@ -49,6 +51,14 @@ class PlannerConfig:
     svgd_step_size: float = 0.05
     cp_smoothing: float = 0.1
     cp_directions: int = 2
+    cp_gradient: str = "autodiff"  # continuous GNN surrogate; "spsa" for discrete probes
+    fixed_goal: bool = False
+    dynamics: str = "waypoints"  # legacy comparison, or "double_integrator"
+    maximum_acceleration: float = 1.0  # Euclidean norm, m/s^2
+    initial_velocity: tuple = (0.0, 0.0)
+    goal_velocity: tuple = (0.0, 0.0)
+    terminal_velocity_weight: float = 2.0
+    control_weight: float = 0.01
 
     @property
     def maximum_step(self) -> float:
@@ -66,8 +76,8 @@ def communication_records(
     if positions.ndim != 3 or positions.shape[2] != 2:
         raise ValueError("positions must have shape (graphs, robots, 2)")
     n = positions.shape[1]
-    if not 1 <= n <= 50 or radius <= 0:
-        raise ValueError("robots must be 1..50 and radius must be positive")
+    if not 1 <= n <= MAX_PLANNING_ROBOTS or radius <= 0:
+        raise ValueError(f"robots must be 1..{MAX_PLANNING_ROBOTS} and radius must be positive")
     if mode not in ("hard", "smooth"):
         raise ValueError("connectivity mode must be 'hard' or 'smooth'")
     if sigma is not None and sigma <= 0:
@@ -130,6 +140,40 @@ class ConformalGraphScorer:
         if self.kind == "lac":
             return np.argmax(lac_prediction_sets(probabilities, self.quantile), axis=1)
         return predict_underbounds(probabilities.argmax(axis=1), self.quantile, 26)
+
+
+def make_smooth_cp_value_and_grad(model, quantile, config: PlannerConfig):
+    """Freeze the model and differentiate a continuous, non-certified surrogate.
+
+    Expected class minus the one-sided calibration correction replaces integer
+    argmax/ceil. Hard-graph CP bounds remain the final acceptance criterion.
+    Map trajectories/waypoints sequentially to bound reverse-mode GPU memory.
+    """
+    if config.cp_kind != "one_sided" or not np.isfinite(quantile):
+        raise ValueError("autodiff guidance requires one_sided CP with a finite quantile")
+    graphdef, state = nnx.split(model)
+
+    def expected_lower(positions):
+        robots = positions.shape[0]
+        source, target = np.nonzero(~np.eye(robots, dtype=bool))
+        edges = jnp.asarray(np.stack((source, target)), dtype=jnp.int32)
+        weights = smooth_adjacency(
+            positions, config.communication_radius, config.connectivity_sigma
+        )
+        features = jnp.stack((weights.sum(axis=1), jnp.ones(robots)), axis=-1)
+        frozen = nnx.merge(graphdef, state)
+        frozen.batchsize = 1
+        logits = frozen(features, edges, weights[source, target, None],
+                        jnp.zeros(robots, dtype=jnp.int32))[0]
+        probabilities = jax.nn.softmax(logits)
+        return jnp.sum(probabilities * jnp.arange(logits.shape[0])) - quantile
+
+    def single(trajectory):
+        lower = jax.lax.map(jax.checkpoint(expected_lower), trajectory)
+        shortfall = jnp.maximum(config.required_robustness - lower.min(), 0.0)
+        return config.cp_weight * shortfall**2
+
+    return jax.jit(lambda particles: jax.lax.map(jax.value_and_grad(single), particles))
 
 
 def svgd_direction(particles: np.ndarray, log_density_gradient: np.ndarray) -> np.ndarray:
@@ -202,26 +246,35 @@ def cp_spsa_gradient(
     rng: np.random.Generator,
 ) -> np.ndarray:
     """Estimate the gradient of a Gaussian-smoothed CP cost with 2-sided probes."""
-    gradient = np.zeros_like(particles, dtype=np.float64)
-    for _ in range(config.cp_directions):
-        noise = rng.normal(size=particles.shape)
-        positive, _ = cp_cost(particles + config.cp_smoothing * noise, scorer, config)
-        negative, _ = cp_cost(particles - config.cp_smoothing * noise, scorer, config)
-        gradient += ((positive - negative) / (2 * config.cp_smoothing))[:, None, None, None] * noise
-    return gradient / config.cp_directions
+    # Collect all +/- probes before graph construction and GNN inference.
+    # cp_cost already flattens particles x waypoints; inference still uses
+    # bounded graph minibatches rather than one GPU allocation for all probes.
+    noise = rng.normal(size=(config.cp_directions, *particles.shape))
+    probes = np.stack((particles + config.cp_smoothing * noise,
+                       particles - config.cp_smoothing * noise), axis=1)
+    values, _ = cp_cost(probes.reshape(-1, *particles.shape[1:]), scorer, config)
+    values = values.reshape(config.cp_directions, 2, len(particles))
+    slopes = (values[:, 0] - values[:, 1]) / (2 * config.cp_smoothing)
+    return np.mean(slopes[..., None, None, None] * noise, axis=0)
 
 
 def plan(
     start: np.ndarray,
     goal: np.ndarray,
     initial_particles: np.ndarray,
-    scorer: ConformalGraphScorer | None,
+    scorer: ConformalGraphScorer,
     config: PlannerConfig,
     iterations: int,
     seed: int = 42,
     record_particles: bool = False,
 ):
-    """Optimize joint trajectories and return the lowest-cost candidate."""
+    """Return the cheapest CP-passing candidate, or (None, report) if none pass."""
+    if config.dynamics == "double_integrator":
+        from planning.double_integrator_planner import plan_double_integrator
+        return plan_double_integrator(start, goal, initial_particles, scorer, config,
+                                      iterations, seed, record_particles)
+    if config.dynamics != "waypoints":
+        raise ValueError("dynamics must be 'waypoints' or 'double_integrator'")
     start, goal = np.asarray(start, np.float32), np.asarray(goal, np.float32)
     particles = np.asarray(initial_particles, np.float64).copy()
     if start.shape != goal.shape or start.ndim != 2 or start.shape[1] != 2:
@@ -230,6 +283,8 @@ def plan(
         raise ValueError("particles must have shape (particles, steps, robots, 2)")
     if len(start) < 2 or len(particles) < 2 or particles.shape[1] < 1:
         raise ValueError("at least two robots, two particles, and one step are required")
+    if config.fixed_goal:
+        particles[:, -1] = goal
     if not 0 <= config.required_robustness < 26:
         raise ValueError("required_robustness must be between zero and 25")
     if config.maximum_speed <= 0 or config.sampling_time <= 0:
@@ -240,8 +295,16 @@ def plan(
         raise ValueError("connectivity_sigma must be positive")
     if iterations < 1 or config.cp_directions < 1 or config.cp_smoothing <= 0:
         raise ValueError("iterations, cp_directions, and cp_smoothing must be positive")
-    if config.cp_weight and scorer is None:
-        raise ValueError("a graph scorer is required when cp_weight is nonzero")
+    if scorer is None:
+        raise ValueError("a graph scorer is required for the final CP filter")
+    if config.cp_gradient not in ("spsa", "autodiff"):
+        raise ValueError("cp_gradient must be 'spsa' or 'autodiff'")
+    if config.cp_gradient == "autodiff" and config.connectivity_mode != "smooth":
+        raise ValueError("autodiff guidance requires smooth connectivity")
+    learned = None
+    learned_gradient = None
+    if config.cp_weight and config.cp_gradient == "autodiff":
+        learned = make_smooth_cp_value_and_grad(scorer.model, scorer.quantile, config)
     smooth = jax.jit(jax.vmap(lambda w: _smooth_cost_single(w, jnp.asarray(start), jnp.asarray(goal), config)))
     smooth_gradient = jax.jit(jax.vmap(jax.grad(lambda w: _smooth_cost_single(w, jnp.asarray(start), jnp.asarray(goal), config))))
     rng = np.random.default_rng(seed)
@@ -249,13 +312,22 @@ def plan(
     particle_snapshots = []
     population_costs = []
     population_bounds = []
+    candidates = []
+    candidate_costs = []
+    candidate_bounds = []
 
     def evaluated_population(current_particles):
+        nonlocal learned_gradient
         total = np.array(smooth(jnp.asarray(current_particles)), dtype=np.float64)
-        lower = None
-        if config.cp_weight:
-            cp_values, lower = cp_cost(current_particles, scorer, config)
-            total += cp_values
+        cp_values, lower = cp_cost(current_particles, scorer, config)
+        if learned is not None:
+            cp_values, learned_gradient = learned(jnp.asarray(current_particles, dtype=jnp.float32))
+            cp_values = np.asarray(cp_values)
+            learned_gradient = np.asarray(learned_gradient, dtype=np.float64)
+        total += cp_values
+        candidates.append(current_particles.copy())
+        candidate_costs.append(total.copy())
+        candidate_bounds.append(lower.copy())
         return total, lower
 
     # Preserve the best candidate seen. SVGD updates and particle repulsion are
@@ -274,8 +346,13 @@ def plan(
         t0 = perf_counter()
         gradient = np.array(smooth_gradient(jnp.asarray(particles)), dtype=np.float64)
         if config.cp_weight:
-            gradient += cp_spsa_gradient(particles, scorer, config, rng)
+            gradient += (learned_gradient if learned is not None else
+                         cp_spsa_gradient(particles, scorer, config, rng))
+        if config.fixed_goal:
+            gradient[:, -1] = 0.0
         particles += config.svgd_step_size * svgd_direction(particles, -gradient)
+        if config.fixed_goal:
+            particles[:, -1] = goal
         total, lower = evaluated_population(particles)
         if record_particles:
             particle_snapshots.append(particles.copy())
@@ -294,8 +371,32 @@ def plan(
                         "incumbent_cost": best_cost,
                         "incumbent_lower_bound": best_bound,
                         "seconds": perf_counter() - t0})
+    # Final acceptance is independent of the optimization penalty weight.
+    # Include earlier populations, since SVGD can move a passing particle away.
+    costs = np.concatenate(candidate_costs)
+    bounds = np.concatenate(candidate_bounds)
+    passing = np.flatnonzero(
+        (bounds >= config.required_robustness) & np.isfinite(costs)
+    )
+    selected_population = None
+    if len(passing):
+        selected = int(passing[np.argmin(costs[passing])])
+        selected_population, best_index = divmod(selected, len(particles))
+        best_waypoints = candidates[selected_population][best_index].copy()
+        best_cost = float(costs[selected])
+        best_bound = int(bounds[selected])
+    else:
+        best_waypoints = best_cost = best_bound = best_index = None
     report = {"index": best_index, "cost": best_cost,
-              "minimum_lower_bound": best_bound, "history": history}
+              "minimum_lower_bound": best_bound, "history": history,
+              "status": "feasible" if len(passing) else "no_feasible_trajectory",
+              "selected_population": selected_population,
+              "passing_candidates": int(len(passing)),
+              "evaluated_candidates": int(len(costs))}
+    report["cp_gradient"] = config.cp_gradient
+    report["optimization_cp_cost"] = (
+        "continuous_expected_class_surrogate" if learned is not None else "hard_cp_shortfall"
+    )
     if record_particles:
         report.update(
             particle_snapshots=np.asarray(particle_snapshots),

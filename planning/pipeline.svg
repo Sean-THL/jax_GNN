@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title description">
   <title id="title">SVGD planner with GATv2 and conformal robustness lower bounds</title>
-  <desc id="description">A checkpoint and calibration set create a conformal scorer. For each SVGD particle, robot waypoints become communication graphs, GATv2 and conformal prediction give lower bounds, and the minimum bound contributes a cost. Smooth costs and probe-estimated conformal cost gradients update the particles. The best trajectory is returned.</desc>
+  <desc id="description">A checkpoint and calibration set create a conformal scorer. For each SVGD particle, robot waypoints become communication graphs, GATv2 and conformal prediction give lower bounds, and the minimum bound contributes a cost. Smooth costs and probe-estimated conformal cost gradients update the particles. After optimization, all candidates pass through a final CP filter. The lowest-cost passing trajectory is returned, or no feasible trajectory if none pass.</desc>
   <defs>
     <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="strokeWidth">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#52677f"/>
@@ -90,8 +90,9 @@
   <text x="637" y="875" class="heading">SVGD update</text>
   <text x="637" y="904" class="body">Lower cost + particle repulsion</text>
   <rect x="1180" y="835" width="360" height="105" rx="16" class="card result"/>
-  <text x="1205" y="875" class="heading">Return best trajectory</text>
-  <text x="1205" y="904" class="body">Lowest total cost after iterations</text>
+  <text x="1205" y="875" class="heading">Final CP filter → selection</text>
+  <text x="1205" y="904" class="body">All steps ≥ target; cheapest passing</text>
+  <text x="1205" y="927" class="small">None pass → no feasible trajectory</text>
   <path class="line" d="M 542 793 V 812 H 715 V 835"/>
   <path class="line" d="M 1105 793 V 812 H 875 V 835"/>
   <path class="line" d="M 982 887 H 1180"/>

@@ -77,7 +77,7 @@ def arrow(axis, start, end, color=CYAN, alpha=1.0):
 
 
 def create_planner_data():
-    scenario = json.loads((PROJECT / "planning/examples/demo_scenario.json").read_text())
+    scenario = json.loads((PROJECT / "planning/examples/legacy_waypoint_scenario.json").read_text())
     base, _ = config_from_scenario(scenario["config"])
     # Five robots cannot satisfy the project's F=2 target. These explainers use
     # the mathematically feasible illustrative setting F=1 -> r_required=3.
