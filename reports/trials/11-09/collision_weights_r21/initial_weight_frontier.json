@@ -1,0 +1,75 @@
+{
+  "scope": "Initial candidate cost envelope only; full optimization can produce other candidates.",
+  "base_costs": [
+    1011.4181976318359,
+    843.3971347808838,
+    1317.953685760498,
+    862.8985862731934,
+    1098.0698585510254,
+    855.3134346008301,
+    1153.5909957885742,
+    861.7849235534668,
+    1476.0398025512695,
+    1370.8124694824219,
+    885.0130233764648,
+    956.1055068969727,
+    846.5460510253906,
+    1166.9329109191895,
+    843.5902919769287
+  ],
+  "collision_coefficients": [
+    0.5413327813148499,
+    0.5245236754417419,
+    0.5456589460372925,
+    0.5118860602378845,
+    0.5007653832435608,
+    0.5380164980888367,
+    0.5382142066955566,
+    0.5642873048782349,
+    0.5280839204788208,
+    0.5241568684577942,
+    0.5076085329055786,
+    0.5556932687759399,
+    0.5131921768188477,
+    0.5230871438980103,
+    0.5329245328903198
+  ],
+  "segments": [
+    {
+      "weight_lower": 0.0,
+      "weight_upper": 277.8905376332774,
+      "particle": 1,
+      "minimum_continuous_separation_m": 0.002950607675398292,
+      "violating_pairs": 328,
+      "violating_pair_intervals": 20882,
+      "zero_collision": false
+    },
+    {
+      "weight_lower": 277.8905376332774,
+      "weight_upper": 6889.223766519353,
+      "particle": 12,
+      "minimum_continuous_separation_m": 0.0005575560655886473,
+      "violating_pairs": 316,
+      "violating_pair_intervals": 20186,
+      "zero_collision": false
+    },
+    {
+      "weight_lower": 6889.223766519353,
+      "weight_upper": 31134.323476382513,
+      "particle": 10,
+      "minimum_continuous_separation_m": 0.0027841270135764208,
+      "violating_pairs": 310,
+      "violating_pair_intervals": 19554,
+      "zero_collision": false
+    },
+    {
+      "weight_lower": 31134.323476382513,
+      "weight_upper": null,
+      "particle": 4,
+      "minimum_continuous_separation_m": 0.0016192963738332522,
+      "violating_pairs": 331,
+      "violating_pair_intervals": 20389,
+      "zero_collision": false
+    }
+  ]
+}

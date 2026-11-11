@@ -38,3 +38,12 @@ JAX_PLATFORMS=cuda .venv/bin/python -m planning.visualize_trajectory_updates \
 .venv/bin/python -m planning.visualize_network_closeup \
   --input reports/visualizations/11-09/50robots_r21
 ```
+
+## Physical-radius update
+
+`network_closeup_50robots_r21_radius0.2m.mp4` draws the robot footprints as
+world-coordinate disks of radius 0.2 m. The original video used symbolic
+markers. The new disk video reuses the same stored trajectory and does not
+change its optimization or endpoints. It flags negative surface gaps. The
+0.45 m center-distance target corresponds to 0.05 m surface clearance.
+Overview-map dots and goal points are still symbolic markers.

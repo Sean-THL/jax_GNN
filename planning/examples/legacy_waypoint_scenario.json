@@ -29,6 +29,7 @@
     "svgd_step_size": 0.01,
     "cp_directions": 2,
     "cp_gradient": "spsa",
-    "fixed_goal": false
+    "fixed_goal": false,
+    "collision_filter": true
   }
 }

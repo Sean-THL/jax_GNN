@@ -198,7 +198,7 @@ def make_rollout(arrays, metadata):
         ax.set_title(f"{TITLES[name]}  |  solver {info['metrics']['wall_seconds']:.3f} s", fontsize=12)
         ax.scatter(*goal.T, s=100, marker="*", c=COLORS[:len(start)], edgecolors="#22354a", linewidths=0.4)
         if f"{name}__selected" not in arrays:
-            ax.text(0.5, 0.5, "No CP-feasible trajectory", transform=ax.transAxes, ha="center", color="#b91c1c")
+            ax.text(0.5, 0.5, "No trajectory passed final filters", transform=ax.transAxes, ha="center", color="#b91c1c")
             continue
         path = np.concatenate((start[None], arrays[f"{name}__selected"]))
         paths[name] = path

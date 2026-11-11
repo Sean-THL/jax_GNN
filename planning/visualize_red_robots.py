@@ -20,12 +20,18 @@ def main():
     parser.add_argument("--input", type=Path, default=PROJECT / "reports/visualizations/11-02/10robots_50steps_fixed_goal")
     parser.add_argument("--fps", type=int, default=24)
     parser.add_argument("--show-inputs", action="store_true", help="Show acceleration arrows, communication radius and full workspace")
+    parser.add_argument("--robot-radius", type=float, help="Draw robot bodies to scale with this radius in metres")
     args = parser.parse_args()
     folder = args.input
     metadata = json.loads((folder / "metrics.json").read_text())
     info = metadata["methods"]["gnn_cp_autodiff"]
     config = info["config"]
+    body_radius = args.robot_radius if args.robot_radius is not None else config.get("robot_radius")
+    if body_radius is not None and (not np.isfinite(body_radius) or body_radius<=0):
+        parser.error("robot-radius must be finite and positive")
     with np.load(folder / "planner_snapshots.npz") as data:
+        if "gnn_cp_autodiff__selected" not in data:
+            raise ValueError("No trajectory passed the final filters; there is no accepted motion to render.")
         start, goal = data["start"], data["goal"]
         path = np.concatenate((start[None], data["gnn_cp_autodiff__selected"]))
     steps, robots = len(path) - 1, len(start)
@@ -75,7 +81,13 @@ def main():
         ax.annotate(str(r + 1), goal[r], xytext=(9, 8), textcoords="offset points", color="#086b2c", fontsize=9, fontweight="bold", zorder=6)
     links = LineCollection([], colors="gray", alpha=0.5, linestyles="--", linewidths=0.9, zorder=1)
     ax.add_collection(links)
-    dots = ax.scatter(*start.T, s=120, color="#df2929", edgecolors="white", linewidths=0.8, zorder=5)
+    bodies=[]
+    if body_radius is None:
+        dots = ax.scatter(*start.T, s=120, color="#df2929", edgecolors="white", linewidths=0.8, zorder=5)
+    else:
+        for position in start:
+            body=Circle(position,body_radius,facecolor="#df2929",edgecolor="white",linewidth=0.8,alpha=0.65,zorder=5)
+            ax.add_patch(body);bodies.append(body)
     labels = [ax.text(*start[r], str(r + 1), ha="center", va="center", color="white", fontsize=7, fontweight="bold", zorder=6) for r in range(robots)]
     input_arrows = radius_circle = None
     if args.show_inputs:
@@ -117,7 +129,10 @@ def main():
         edges, degree, robustness = graph_at(positions)
         pairs = np.transpose(np.nonzero(np.triu(edges, 1)))
         links.set_segments(positions[pairs] if len(pairs) else [])
-        dots.set_offsets(positions)
+        if bodies:
+            for body,position in zip(bodies,positions):body.center=position
+        else:
+            dots.set_offsets(positions)
         for r, label in enumerate(labels):
             label.set_position(positions[r])
         if input_arrows is not None:

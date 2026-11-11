@@ -1,0 +1,9 @@
+{
+  "robot_radius_m": 0.2,
+  "body_diameter_m": 0.4,
+  "minimum_separation_m": 0.45,
+  "surface_gap_target_m": 0.04999999999999999,
+  "closeup_bodies_to_scale": true,
+  "overview_markers_to_scale": false,
+  "video": "network_closeup_50robots_r21_radius0.2m.mp4"
+}

@@ -11,6 +11,12 @@ class DegreeScorer:
         return np.array([int(r['features'][:,0].min()) for r in communication_records(positions,radius,mode,sigma)])
 
 class DynamicsTests(unittest.TestCase):
+    def test_body_radius_cannot_exceed_half_safety_separation(self):
+        start=np.array([[0.,0.],[0.5,0.]])
+        config=PlannerConfig(3.,0.39,3.,0.05,1,dynamics='double_integrator',cp_weight=0.,robot_radius=0.2)
+        with self.assertRaisesRegex(ValueError,'twice robot_radius'):
+            plan(start,start,np.zeros((2,2,2,2)),DegreeScorer(),config,iterations=1)
+
     def test_constant_acceleration(self):
         controls=jnp.ones((2,20,3,2))*jnp.array([0.6,0.8])
         p,v=rollout(controls,jnp.zeros((3,2)),jnp.array([0.2,-0.1]),0.05)

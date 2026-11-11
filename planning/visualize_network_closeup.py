@@ -19,10 +19,15 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input',type=Path,default=PROJECT/'reports/visualizations/11-09/random_goals_20m_clear')
     parser.add_argument('--fps',type=int,default=20)
+    parser.add_argument('--robot-radius',type=float,help='Physical robot disk radius in metres (default: config or 0.2)')
     args=parser.parse_args();folder=args.input
     metadata=json.loads((folder/'metrics.json').read_text())
     info=metadata['methods']['gnn_cp_autodiff'];config=info['config'];report=info['planner_report']
+    body_radius=args.robot_radius if args.robot_radius is not None else (config.get('robot_radius') or 0.2)
+    if not np.isfinite(body_radius) or body_radius<=0:parser.error('robot-radius must be finite and positive')
     with np.load(folder/'planner_snapshots.npz') as data:
+        if 'gnn_cp_autodiff__selected' not in data:
+            raise ValueError('No trajectory passed the final filters; there is no accepted motion to render.')
         start,goal=data['start'],data['goal']
         path=np.concatenate((start[None],data['gnn_cp_autodiff__selected']))
     steps,robots=len(path)-1,len(start)
@@ -54,10 +59,13 @@ def main():
     for r in range(robots):
         ax.annotate(str(r+1),goal[r],xytext=(10,9),textcoords='offset points',fontsize=label_size,color='#087234',fontweight='bold',clip_on=True)
     links=LineCollection([],colors='gray',linestyles='--',alpha=0.5,linewidths=0.5 if robots>10 else 1.2,zorder=1);ax.add_collection(links)
-    dots=ax.scatter(*start.T,color='#dc3030',s=dot_size,edgecolors='white',linewidths=1.5,zorder=5)
+    bodies=[]
+    for position in start:
+        body=Circle(position,body_radius,facecolor='#dc3030',edgecolor='white',linewidth=0.8,alpha=0.65,zorder=5)
+        ax.add_patch(body);bodies.append(body)
     labels=[ax.text(*start[r],str(r+1),ha='center',va='center',color='white',fontsize=label_size,fontweight='bold',zorder=6,clip_on=True) for r in range(robots)]
     fig.text(0.065,0.075,'Red: robot   •   Green: its assigned goal   •   Dashed gray: communication link',fontsize=11,color='#43516a')
-    fig.text(0.065,0.043,f'Fixed {2*camera_half:.1f} × {2*camera_half:.1f} m close-up. Links: distance ≤ {radius:g} m. Small map: full trip.',fontsize=10,color='#536276')
+    fig.text(0.065,0.043,f'Robot disks drawn to scale: radius {body_radius:g} m. Links: distance ≤ {radius:g} m. Small-map dots are symbolic.',fontsize=10,color='#536276')
     overview=fig.add_axes([0.69,0.68,0.27,0.17]);overview.set_title('Full route — same robot positions',fontsize=12,pad=10)
     overview.set_aspect('equal');overview.set_xlim(0,34);overview.set_ylim(0,12);overview.grid(alpha=0.13)
     overview.scatter(*start.T,s=12,facecolors='none',edgecolors='#e47575',alpha=0.7)
@@ -68,6 +76,7 @@ def main():
     viewport=Rectangle((0,0),2*camera_half,2*camera_half,fill=False,edgecolor='#2685bc',linewidth=1.3);overview.add_patch(viewport)
     overview.tick_params(labelsize=8);overview.set_xlabel('World x (m)',fontsize=9)
     stats=fig.text(0.69,0.59,'',va='top',fontsize=12,linespacing=1.45,color='#192b40')
+    separation_text=fig.text(0.69,0.425,'',fontsize=11)
     chart=fig.add_axes([0.72,0.17,0.24,0.18]);chart.set_title('Graph values during motion',fontsize=12,pad=12)
     chart.set_xlim(0,duration);chart.set_ylim(0,max(10,robots));chart.set_yticks(sorted({0,target,robots-1}));chart.set_xlabel('Time (s)',fontsize=10);chart.grid(alpha=0.14)
     rline,=chart.plot([],[],color='#138253',lw=2,label='Exact r' if robots<=10 else 'CP bound (waypoint)')
@@ -84,7 +93,8 @@ def main():
         adjacency,r,d,separation=graph(positions)
         pairs=np.array(np.nonzero(np.triu(adjacency,1))).T
         links.set_segments(positions[pairs] if len(pairs) else [])
-        dots.set_offsets(positions);mapdots.set_offsets(positions)
+        for body,position in zip(bodies,positions):body.center=position
+        mapdots.set_offsets(positions)
         center=positions.mean(0);ax.set_xlim(center[0]-camera_half,center[0]+camera_half);ax.set_ylim(center[1]-camera_half,center[1]+camera_half)
         viewport.set_xy(center-camera_half)
         for i,label in enumerate(labels):label.set_position(positions[i])
@@ -93,14 +103,20 @@ def main():
         cp='initial state' if shown==0 else str(info['metrics']['lower_bounds_by_step'][shown-1])
         goal_error=np.linalg.norm(positions-goal,axis=1).mean()
         r_text=str(r) if r is not None else 'not computed'
-        stats.set_text(f'Exact robustness r: {r_text}  (target {target})\nMinimum degree: {d}   |   CP: {cp}\nMean distance to goals: {goal_error:.2f} m\nMax speed: {np.linalg.norm(velocity,axis=1).max():.2f} m/s\nMax input |u|: {np.linalg.norm(controls[k],axis=1).max():.2f} m/s²\nMin separation: {separation:.2f} m')
+        stats.set_text(f'Exact robustness r: {r_text}  (target {target})\nMinimum degree: {d}   |   CP: {cp}\nMean distance to goals: {goal_error:.2f} m\nMax speed: {np.linalg.norm(velocity,axis=1).max():.2f} m/s\nMax input |u|: {np.linalg.norm(controls[k],axis=1).max():.2f} m/s²')
+        gap=separation-2*body_radius
+        separation_text.set_text(f'Min surface gap: {gap:.3f} m' + ('  (BODY OVERLAP)' if gap<0 else ''))
+        separation_text.set_color('#b32626' if gap<0 else '#138253')
         rline.set_data(times[:shown+1],(robustness if robots<=10 else cp_history)[:shown+1]);dline.set_data(times[:shown+1],degree[:shown+1]);cursor.set_xdata([time,time])
         return []
     update(hold+moving//2)
     fig.savefig(folder/'network_closeup_preview.png',dpi=120)
-    output=folder/(f'network_closeup_{robots}robots_r{target}.mp4' if robots>10 else 'network_closeup_20m.mp4')
+    output=folder/(f'network_closeup_{robots}robots_r{target}_radius{body_radius:g}m.mp4')
     animation=FuncAnimation(fig,update,frames=moving+2*hold+1,interval=1000/args.fps,blit=False)
     animation.save(output,writer=FFMpegWriter(fps=args.fps,codec='libx264',bitrate=4000,extra_args=['-pix_fmt','yuv420p','-movflags','+faststart']))
+    (folder/'render_settings.json').write_text(json.dumps({'robot_radius_m':body_radius,'body_diameter_m':2*body_radius,
+        'minimum_separation_m':config['minimum_separation'],'surface_gap_target_m':config['minimum_separation']-2*body_radius,
+        'closeup_bodies_to_scale':True,'overview_markers_to_scale':False,'video':output.name},indent=2)+'\n')
     plt.close(fig);print(f'Saved {output}',flush=True)
 
 

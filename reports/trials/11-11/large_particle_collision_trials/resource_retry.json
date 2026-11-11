@@ -1,0 +1,19 @@
+{
+  "first_100_particle_attempt": {
+    "exit_code": 137,
+    "saved_feasibility_result": false,
+    "cause": "Suspected memory pressure; kernel OOM diagnostics unavailable. Host has 16 GiB RAM and its 2 GiB swap was full."
+  },
+  "retry": {
+    "particles": 100,
+    "base_gradient_particle_batch": 8,
+    "graph_construction_target_chunk": 256,
+    "preserves_inference_minibatch_boundaries": true,
+    "planning_settings_changed": false
+  },
+  "validation": [
+    "Bounded base cost and gradient agree with full vmap within rtol=1e-5, atol=1e-6.",
+    "Hard and smooth graph chunking preserves CP bounds and graph order for both one-sided and LAC methods.",
+    "Shared-population acceptance agrees with independently optimized CP-only and joint-filter runs."
+  ]
+}

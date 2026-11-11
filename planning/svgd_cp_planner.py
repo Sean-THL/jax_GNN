@@ -26,6 +26,7 @@ from conformal.scores import (
 )
 from gnn.variants import model_class, predict_probabilities, prepare_records, read_records
 from planning.connectivity import adjacency, smooth_adjacency
+from planning.acceptance import separation_acceptance
 
 MAX_PLANNING_ROBOTS = 100
 
@@ -59,6 +60,8 @@ class PlannerConfig:
     goal_velocity: tuple = (0.0, 0.0)
     terminal_velocity_weight: float = 2.0
     control_weight: float = 0.01
+    robot_radius: float | None = None  # metres; None for historical point-only scenarios
+    collision_filter: bool = True  # hard final separation acceptance, in addition to CP
 
     @property
     def maximum_step(self) -> float:
@@ -110,6 +113,9 @@ class ConformalGraphScorer:
         if (metadata["representation"], metadata["convolution"]) != ("new", "gatv2"):
             raise ValueError("checkpoint must contain the new GATv2 model")
         self.batch_size = int(metadata["batch_size"])
+        # Preserve inference minibatch boundaries while bounding graph-building
+        # memory independently of particles × horizon.
+        self.graph_chunk_size = max(self.batch_size, (256 // self.batch_size) * self.batch_size)
         self.model = model_class("new", "gatv2")(
             2, 100, 26, nnx.Rngs(int(metadata["seed"])), self.batch_size
         )
@@ -133,13 +139,16 @@ class ConformalGraphScorer:
         self, positions: np.ndarray, radius: float, mode: str = "hard",
         sigma: float | None = None,
     ) -> np.ndarray:
-        records = communication_records(positions, radius, mode, sigma)
-        probabilities, _ = predict_probabilities(
-            self.model, records, self.batch_size, "new"
-        )
-        if self.kind == "lac":
-            return np.argmax(lac_prediction_sets(probabilities, self.quantile), axis=1)
-        return predict_underbounds(probabilities.argmax(axis=1), self.quantile, 26)
+        positions = np.asarray(positions)
+        bounds = []
+        for begin in range(0, len(positions), self.graph_chunk_size):
+            records = communication_records(positions[begin:begin+self.graph_chunk_size], radius, mode, sigma)
+            probabilities, _ = predict_probabilities(self.model, records, self.batch_size, "new")
+            if self.kind == "lac":
+                bounds.append(np.argmax(lac_prediction_sets(probabilities, self.quantile), axis=1))
+            else:
+                bounds.append(predict_underbounds(probabilities.argmax(axis=1), self.quantile, 26))
+        return np.concatenate(bounds) if bounds else np.empty(0, dtype=int)
 
 
 def make_smooth_cp_value_and_grad(model, quantile, config: PlannerConfig):
@@ -375,9 +384,25 @@ def plan(
     # Include earlier populations, since SVGD can move a passing particle away.
     costs = np.concatenate(candidate_costs)
     bounds = np.concatenate(candidate_bounds)
-    passing = np.flatnonzero(
+    cp_passing = np.flatnonzero(
         (bounds >= config.required_robustness) & np.isfinite(costs)
     )
+    # Check ALL CP-passing candidates before ranking, including earlier ones.
+    # An unsafe low-cost candidate must not hide a more expensive safe plan.
+    passing=[]
+    selected_separation=None
+    rejected=0
+    for selected in sorted(cp_passing, key=lambda index: costs[index]):
+        population,index=divmod(int(selected),len(particles))
+        if config.collision_filter:
+            separation=separation_acceptance(start,candidates[population][index],config.minimum_separation,
+                                             robot_radius=config.robot_radius)
+            if not separation['zero_collision']:
+                rejected+=1
+                continue
+            if not passing:selected_separation=separation
+        passing.append(int(selected))
+    passing=np.asarray(passing,dtype=int)
     selected_population = None
     if len(passing):
         selected = int(passing[np.argmin(costs[passing])])
@@ -393,6 +418,11 @@ def plan(
               "selected_population": selected_population,
               "passing_candidates": int(len(passing)),
               "evaluated_candidates": int(len(costs))}
+    report.update(collision_filter_enabled=config.collision_filter,
+                  cp_passing_candidates=int(len(cp_passing)),collision_rejected_candidates=rejected,
+                  separation_threshold_m=config.minimum_separation)
+    if selected_separation is not None:
+        report['separation_check']=selected_separation
     report["cp_gradient"] = config.cp_gradient
     report["optimization_cp_cost"] = (
         "continuous_expected_class_surrogate" if learned is not None else "hard_cp_shortfall"

@@ -4,8 +4,8 @@ Normal planning and visualization runs default to **`gnn_cp_autodiff`**.
 Goal arrival is a **soft cost**, with `fixed_goal=false` explicitly recorded
 in the double-integrator scenarios. Its default cost includes goal, motion,
 collision, speed, smooth degree, terminal velocity, control effort, and the
-continuous GNN robustness surrogate. Hard-graph CP filtering remains the final
-acceptance step. Alternate methods require an explicit `--methods` selection.
+continuous GNN robustness surrogate. Final acceptance requires both hard-graph CP bounds and hard separation
+checks throughout the planned motion. Alternate methods require an explicit `--methods` selection.
 
 The default demonstration now uses a **planar double integrator in SI units**.
 Historical waypoint-only results are reproducible using
@@ -48,8 +48,8 @@ Seeds use minimum-energy acceleration profiles with target terminal position
 and zero terminal velocity; noise is added in control space. After projection,
 arrival is encouraged by terminal costs, not imposed. Initial and goal
 velocities default to `[0,0]` m/s. `maximum_speed = 3 m/s` remains a **soft**
-cost separate from the **hard** acceleration-input bound of 1 m/s². Collision
-separation (0.3 m), goal completion, and stopping at the goal also remain soft.
+cost separate from the **hard** acceleration-input bound of 1 m/s². Collision separation has a soft optimization penalty plus hard final
+acceptance at 0.45 m. Goal completion and stopping at the goal remain soft.
 `fixed_goal=True` is rejected for this model because clamping positions would
 break the equations. All four planners retain the hard-graph CP filter; CP
 acceptance alone is not full task success.
@@ -131,10 +131,13 @@ shortfall penalty controlled by `cp_weight`, with an SPSA position gradient.
 `cp_weight`, with automatic position gradients. All methods use hard graphs
 for final CP acceptance.
 
-All runs finish with a CP acceptance filter, independent of `cp_weight`.
+All runs finish with joint CP and separation acceptance, independent of
+`cp_weight` and `collision_weight`. With `collision_filter=true` (default),
+CP-passing candidates must also maintain `minimum_separation` throughout
+every motion interval, including the initial state.
 Every candidate seen during optimization must have a conformal lower bound
 at least `required_robustness` at every future waypoint. The planner returns
-the lowest-cost passing candidate, or `(None, report)` with
+the lowest-cost candidate passing both checks, or `(None, report)` with
 `status="no_feasible_trajectory"` if none pass. A scorer is required for every
 run. This enforces the predicted-bound condition; the calibration limitations
 below still apply to claims about actual robustness.
@@ -308,7 +311,7 @@ flowchart LR
     A --> C[Soft degree: smooth connectivity guidance]
     A --> D[GNN + CP with SPSA]
     A --> I[GNN + CP with autodiff]
-    B --> G[Final CP filter: all waypoints meet target]
+    B --> G[Final filter: CP target and continuous separation]
     C --> G
     D --> G
     I --> G
@@ -563,3 +566,104 @@ can display the saved 50-robot result. For teams above ten, its chart shows CP
 bounds and minimum degree instead of exact robustness. See
 [the r=21 video](../reports/visualizations/11-09/50robots_r21/README.md) for
 commands, settings and limitations.
+
+## Collision-weight trials
+
+Use `--collision-weight VALUE` with `python -m planning` to override the soft
+collision cost without changing the scenario file. Goal arrival remains soft.
+`python -m planning.tune_collision_weight` reuses the saved 50-robot r=21
+comparison's exact geometry, initial particles, seed and optimization budget
+while varying only that weight. It saves individual trials and CSV summaries.
+The continuous separation checker minimizes pair distance within each
+constant-acceleration interval, including interior stationary points.
+
+The [trial report](../reports/trials/11-09/collision_weights_r21/REPORT.md)
+records eighteen tested weights. None produced zero violations of the 0.45 m
+separation threshold or zero body overlaps with radius 0.2 m. Weight 6,900 is
+the lowest tested weight tied for the fewest violating pairs; the trajectories
+remain unsafe. The default
+collision weight stays at 10.
+
+Use `--particles 50` or `--particles 100` with the tuning script to change
+the population while retaining the saved geometry, seed, noise, horizon and
+iteration count. Use separate output folders for each population. The default
+trial policy includes the hard collision filter; `--legacy-cp-only` explicitly
+enables CP-only acceptance for cost experiments.
+
+`--compare-cp-only-output PATH` additionally saves the CP-only selection from
+the same optimized populations while running the hard filter. It checks every
+CP-passing candidate and records both selections, including null trajectories
+when none pass the hard filter. This avoids duplicate GNN optimization:
+neither final acceptance rule feeds back into particle updates. Both outputs
+share the measured solve time, including collision screening. See the
+[large-population comparison](../reports/trials/11-11/large_particle_collision_trials/REPORT.md)
+for weights, collision counts, solver times and reproduction commands.
+
+Large double-integrator populations use batches of eight for base-cost
+gradients. The CP scorer builds at most about 256 graphs at a time, aligned
+to its checkpoint's inference batch size. These bounds limit temporary
+memory; every particle and waypoint is still evaluated. Add `--progress`
+to the tuning command to print stages and CP/joint acceptance counts for
+each population.
+
+## Robot body radius
+
+Double-integrator example scenarios now explicitly set `robot_radius=0.2` m
+and a center-distance target of at least 0.45 m. For equal disks, contact
+occurs at 0.4 m center distance, and the 0.45 m target leaves 0.05 m between
+surfaces. The planner rejects a configured separation target smaller than
+twice the body radius. Separation remains a soft cost during optimization. Candidates that violate
+the hard final separation check are rejected. No contact-response dynamics
+are simulated.
+
+The close-up renderer now uses world-coordinate circles of radius 0.2 m, not
+fixed-pixel markers. Historical data can be displayed using an explicit
+`--robot-radius 0.2` override. Green goal points and small route-map dots remain
+symbolic. The close-up reports negative surface gaps as BODY OVERLAP.
+
+```bash
+.venv/bin/python -m planning.visualize_network_closeup \
+  --input reports/visualizations/11-09/50robots_r21 --robot-radius 0.2
+```
+
+`continuous_separation(..., robot_radius=0.2)` reports physical overlap counts
+(<0.4 m) separately from safety-distance violations (<0.45 m). The extended
+weight-sweep report includes both, using the user's radius assumption on the
+recorded trajectories.
+
+## Joint final CP and collision filter
+
+Final acceptance now requires both the CP target and collision clearance.
+`collision_filter=true` is the default in the API and example scenarios.
+For each candidate, CP bounds must meet `required_robustness` at every future
+waypoint, and all robot centers must stay at least `minimum_separation` apart.
+For the current body radius of 0.2 m, the 0.45 m threshold includes a 0.05 m
+surface gap. The check includes the initial configuration and the motion
+between waypoints, not just the stored positions.
+
+The double-integrator check minimizes pairwise separation over each quadratic
+constant-acceleration interval using endpoints and stationary points. Legacy
+waypoint plans are checked along straight-line segments. Sampled collisions
+are rejected first to avoid unnecessary root calculations. Checks use a
+1e-9 m comparison tolerance; this is numerical acceptance under the model,
+not an execution/estimation safety certificate.
+
+The collision penalty still guides optimization. Goal arrival stays soft
+(`fixed_goal=false`), with no goal-distance acceptance threshold added. Only
+candidates passing both final checks enter cost ranking or become the retained
+incumbent. If none pass, the planner returns `None` with
+`status="no_feasible_trajectory"`. No rejected fallback is returned as a plan.
+
+Reports include `cp_passing_candidates`, `collision_rejected_candidates`,
+`passing_candidates` (joint passes), and the accepted plan's `separation_check`.
+Double-integrator reports also count rejection reasons. The terminal prints
+the rejection counts when no candidate passes. This policy applies to all
+four planners, regardless of penalty weights.
+
+Old videos and the 18-weight report used CP-only acceptance and include
+colliding trajectories. They are historical outputs, not accepted plans under
+the new policy. The tuning helper now defaults to the joint policy and a new
+output folder. Reproducing those historical CP-only trials requires the
+explicit `--legacy-cp-only` option. Do not mix the two policies in one trial
+folder. Accepted-motion visualizers stop with a clear message when no plan
+passed; they do not render a rejected candidate as a successful trajectory.

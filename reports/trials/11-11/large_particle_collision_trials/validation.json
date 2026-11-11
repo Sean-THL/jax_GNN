@@ -1,0 +1,22 @@
+{
+  "complete": true,
+  "completed_utc": "2026-11-11T17:25:13.913282+00:00",
+  "saved_policy_results": 17,
+  "hard_filter_results": 8,
+  "all_hard_filter_results": "no_feasible_trajectory",
+  "best_large_population_trial": {
+    "particles": 100,
+    "collision_weight": 1000,
+    "physical_overlap_pairs": 262,
+    "clearance_violating_pairs": 305,
+    "minimum_cp_bound": 22,
+    "goal_mean_distance_m": 0.5176256620409011
+  },
+  "tests_passed": 65,
+  "checks": [
+    "Fixed geometry and planning budget preserved.",
+    "All hard-filter results have null trajectories and zero accepted candidates.",
+    "Best saved collision metrics recomputed from continuous double-integrator motion.",
+    "Best runnable scenario validated, with hard collision filter and soft goal retained."
+  ]
+}

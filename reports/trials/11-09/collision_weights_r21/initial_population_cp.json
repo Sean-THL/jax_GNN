@@ -1,0 +1,21 @@
+{
+  "minimum_bounds_by_particle": [
+    22,
+    22,
+    22,
+    22,
+    22,
+    22,
+    22,
+    22,
+    22,
+    22,
+    22,
+    22,
+    22,
+    22,
+    22
+  ],
+  "passing_count": 15,
+  "required_robustness": 21
+}

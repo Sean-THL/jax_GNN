@@ -293,6 +293,8 @@ def main():
                         help="Maximum speed in distance units/second (overrides the scenario)")
     parser.add_argument("--maximum-acceleration", type=float,
                         help="Hard acceleration norm bound for double-integrator dynamics")
+    parser.add_argument("--collision-weight", type=float,
+                        help="Override the soft pairwise collision penalty weight")
     parser.add_argument("--iterations", type=int, default=5)
     parser.add_argument("--noise", type=float,
                         help="Absolute waypoint noise (overrides --noise-fraction)")
@@ -328,6 +330,10 @@ def main():
         config = replace(config, maximum_speed=args.maximum_speed)
     if args.maximum_acceleration is not None:
         config = replace(config, maximum_acceleration=args.maximum_acceleration)
+    if args.collision_weight is not None:
+        if not np.isfinite(args.collision_weight) or args.collision_weight < 0:
+            parser.error("collision-weight must be finite and nonnegative")
+        config = replace(config, collision_weight=args.collision_weight)
     if args.connectivity_mode is not None:
         config = replace(config, connectivity_mode=args.connectivity_mode)
     if args.connectivity_sigma is not None:
@@ -380,6 +386,10 @@ def main():
         )
         results[name]["planner_report"] = planner_report
         results[name]["planner_config"] = asdict(run_config)
+        results[name]["meets_separation_target"] = (
+            planner_report.get("separation_check",{}).get("zero_collision")
+            if trajectory is not None else False
+        )
         results[name]["cp_scale_status"] = (
             "experimental_above_50_training_calibration_nodes" if len(start) > 50
             else "within_original_node_count_range"
@@ -400,6 +410,9 @@ def main():
     if config.dynamics == "double_integrator":
         print(f"Dynamics: double integrator; hard acceleration norm <= {config.maximum_acceleration:g} m/s^2; "
               f"horizon {args.steps * config.sampling_time:g} s; speed is a soft cost")
+    if config.robot_radius is not None:
+        print(f"Robot radius: {config.robot_radius:g} m; body diameter: {2*config.robot_radius:g} m; "
+              f"separation target: {config.minimum_separation:g} m; surface gap target: {config.minimum_separation-2*config.robot_radius:g} m")
     print(f"Initial particle noise: {trajectory_noise:g} "
           f"({'acceleration units' if config.dynamics == 'double_integrator' else 'position units'})")
     if config.required_robustness > (len(start) + 1) // 2:
@@ -414,7 +427,10 @@ def main():
     for name, _ in runs:
         value = results[name]
         if value["waypoints"] is None:
-            print(f"{name:15} no feasible trajectory (Success=NO)")
+            report=value['planner_report']
+            print(f"{name:15} no feasible trajectory (Success=NO; "
+                  f"CP-pass={report.get('cp_passing_candidates',0)}, "
+                  f"collision-rejected={report.get('collision_rejected_candidates',0)})")
             continue
         exact = "n/a" if value["minimum_exact_robustness"] is None else str(value["minimum_exact_robustness"])
         success = "YES" if value["meets_predicted_target"] else "NO"
@@ -425,7 +441,9 @@ def main():
               f"{value['wall_seconds']:9.3f}")
     print("Exact r uses exhaustive subset checks only for scenarios with at most 10 robots.")
     print("Seconds measures optimization and final CP filtering; scorer setup and evaluation are excluded.")
-    print("Speed, minimum separation, and terminal goals are soft costs; double-integrator acceleration is hard bounded.")
+    print("Speed and terminal goals are soft costs; double-integrator acceleration is hard bounded.")
+    print(f"Final collision filter: {'ON' if config.collision_filter else 'OFF'}; "
+          f"requires center separation >= {config.minimum_separation:g} m throughout each motion interval.")
     print("The CP bound is a prediction, not a guarantee for the trajectory selected by search.")
 
     if args.output:

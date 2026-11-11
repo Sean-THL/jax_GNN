@@ -55,7 +55,9 @@
     "terminal_velocity_weight": 2.0,
     "control_weight": 0.01,
     "fixed_goal": false,
-    "cp_gradient": "autodiff"
+    "cp_gradient": "autodiff",
+    "robot_radius": 0.2,
+    "collision_filter": true
   },
   "random_goals": {
     "lower": [
