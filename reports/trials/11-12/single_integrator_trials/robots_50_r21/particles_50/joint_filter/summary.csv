@@ -1,0 +1,6 @@
+collision_weight,cp_success,particles,status,robots,required_robustness,dynamics,cp_passing_candidates,accepted_candidates,collision_rejected_candidates,collision_filter_enabled,minimum_cp_bound,goal_mean_distance_m,maximum_acceleration_m_s2,maximum_speed_m_s,selected_population,solving_seconds,origin
+10.0,False,50,no_feasible_trajectory,50,21,single_integrator,300,0,300,True,,,,,,168.31384192400583,shared_population_trial
+1000.0,False,50,no_feasible_trajectory,50,21,single_integrator,300,0,300,True,,,,,,159.12243757300166,shared_population_trial
+6900.0,False,50,no_feasible_trajectory,50,21,single_integrator,300,0,300,True,,,,,,142.75222543599375,shared_population_trial
+30000.0,False,50,no_feasible_trajectory,50,21,single_integrator,300,0,300,True,,,,,,143.30542396200326,shared_population_trial
+100000.0,False,50,no_feasible_trajectory,50,21,single_integrator,207,0,207,True,,,,,,140.7061441219994,shared_population_trial

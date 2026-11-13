@@ -569,6 +569,79 @@ commands, settings and limitations.
 
 ## Collision-weight trials
 
+### Single-integrator dynamics
+
+Set `dynamics` to `single_integrator`, or pass `--dynamics single_integrator`.
+The state is position and the control is velocity:
+
+```text
+p[k+1] = p[k] + dt * u[k]
+||u[k]|| <= maximum_speed
+```
+
+The speed bound is a hard Euclidean norm bound, enforced after every update
+and SPSA probe. The experiment uses 3 m/s. Acceleration is not a state or
+constraint for this model. Double-integrator runs retain their hard 1 m/s²
+acceleration bound and soft 3 m/s speed cost.
+
+Both models use the shared control optimizer in `control_integrator_planner.py`.
+The single-integrator physics and velocity initializer are in `dynamics.py`;
+`single_integrator_planner.py` is its public planner entry point. The goal,
+path, collision, degree, CP surrogate, control-effort and terminal-velocity
+costs remain. For SI, terminal velocity is the final held velocity command.
+The speed-excess cost is zero under its hard speed projection. Goal arrival
+and stopping remain soft costs. Initial seeds target arrival and stopping;
+optimization can change those terminal values.
+
+For SI, `controls` and `velocities` both record held interval velocities in
+m/s; there is no `accelerations` array. Its final collision check minimizes
+pair distance continuously along every straight segment, including the start.
+DI uses quadratic constant-acceleration segments. Both keep the same hard-graph
+CP check at all sampled future waypoints and the same 0.45 m clearance target.
+
+Run the saved 50-robot geometry with SI:
+
+```bash
+JAX_PLATFORMS=cuda .venv/bin/python -m planning \
+  --scenario planning/examples/single_integrator_50robots.json \
+  --robots 50 --particles 50 --steps 320 --iterations 5 --noise 0.1 \
+  --methods gnn_cp_autodiff --output reports/single_integrator_demo.json
+```
+
+Repeat the two preceding DI weight studies with exactly matched weights,
+robot counts, robustness targets, particle counts and geometry:
+
+```bash
+JAX_PLATFORMS=cuda .venv/bin/python -m planning.run_single_integrator_trials
+```
+
+This covers 50 robots at r=21 and r=20, and 25 robots at r=10, each with 50
+and 100 particles: 27 weight/population configurations. It uses GNN–CP–autodiff,
+as did the preceding weight sweeps, and evaluates both CP-only and joint-filter
+selection on the same populations. All four planner cost methods remain
+available through `python -m planning --methods ...`.
+
+The numeric seed noise stays at 0.1; its units change from m/s² to m/s.
+Use `--noise 0.1` to reproduce this through the general CLI; the CLI's default
+fractional SI noise is 0.1 times maximum_speed. The model-specific minimum-energy
+seeds and hard control limits differ, so the comparison includes these physical
+model differences. See the [SI study](../reports/trials/11-12/single_integrator_trials/REPORT.md)
+and its matched DI/SI CSV for results and computational times. The runner resumes
+matching files and keeps SI results separate from historical DI results.
+After a completed matrix, independently check all saved controls, dynamics,
+CP targets and continuous collision metrics with:
+
+```bash
+.venv/bin/python -m planning.validate_single_integrator_trials
+```
+
+The SI matrix enables `--cache-hard-batches` after the initial sweep. This
+optional tuning flag reuses frozen CP predictions only for identical ordered
+hard-graph minibatches, retaining batch context and CP settings. It never
+caches smooth gradients. CUDA checks verify unchanged bounds for both robot
+counts. Timing comparisons include this inference optimization and compile
+cache effects; they do not isolate the cost of the dynamics equation.
+
 Use `--collision-weight VALUE` with `python -m planning` to override the soft
 collision cost without changing the scenario file. Goal arrival remains soft.
 `python -m planning.tune_collision_weight` reuses the saved 50-robot r=21
@@ -605,6 +678,28 @@ to its checkpoint's inference batch size. These bounds limit temporary
 memory; every particle and waypoint is still evaluated. Add `--progress`
 to the tuning command to print stages and CP/joint acceptance counts for
 each population.
+SVGD computes pairwise distances one row at a time, retaining the original
+direct squared-distance calculation while avoiding a population-squared
+trajectory tensor (about 4.8 GiB of temporaries for 100 particles and the
+320-step, 50-robot control horizon).
+
+For explicit robustness experiments, the tuning tool supports
+`--required-robustness 20` and `--robots 25 --required-robustness 10`.
+These exact targets apply to degree costs, the GNN surrogate and final CP
+acceptance. They bypass the scenario loader's `2F+1` derivation for this
+experiment; do not use a fractional `adversary_bound` to request an even r.
+`--robots 25` selects the first 25 saved robot/goal pairs. Geometry, horizon,
+noise and update budget otherwise remain fixed.
+
+Run both requested setups with 50 and 100 particles:
+
+```bash
+JAX_PLATFORMS=cuda .venv/bin/python -m planning.run_robustness_collision_trials
+```
+
+The runner processes the four setups sequentially and resumes matching
+saved trials. See the [11/12 comparison report](../reports/trials/11-12/robustness_collision_trials/REPORT.md)
+for exact commands, collision counts, selected trajectories and solving times.
 
 ## Robot body radius
 

@@ -1,14 +1,14 @@
 """Hard geometric acceptance checks, separate from learned CP predictions."""
 import numpy as np
-from planning.collision_metrics import continuous_separation
+from planning.collision_metrics import continuous_separation,linear_separation
 
 
 def separation_acceptance(start, positions, threshold, *, robot_radius=None,
                           velocities=None, controls=None, dt=None, initial_velocity=(0.,0.)):
     """Reject sampled collisions quickly, then check every motion interval.
 
-    Dynamics paths use quadratic constant-acceleration motion. Historical
-    waypoint paths use straight-line interpolation. Includes the start state.
+    Double-integrator paths use quadratic constant-acceleration motion.
+    Single-integrator and waypoint paths use straight segments. Includes start.
     """
     if not np.isfinite(threshold) or threshold<0:
         raise ValueError("separation threshold must be finite and nonnegative")
@@ -30,19 +30,6 @@ def separation_acceptance(start, positions, threshold, *, robot_radius=None,
         result=continuous_separation(start,positions,velocities,controls,dt,threshold,
                                      initial_velocity,robot_radius=robot_radius)
     else:
-        relative=path[:-1,i]-path[:-1,j]
-        change=(path[1:,i]-path[1:,j])-relative
-        squared=np.sum(change*change,axis=-1)
-        fraction=np.zeros_like(squared)
-        np.divide(-np.sum(relative*change,axis=-1),squared,out=fraction,where=squared>0)
-        fraction=np.clip(fraction,0.,1.)
-        minimum=np.linalg.norm(relative+fraction[...,None]*change,axis=-1)
-        violation=minimum < threshold-1e-9
-        result={'zero_collision':bool(not violation.any()),
-                'minimum_continuous_separation_m':float(minimum.min()),
-                'minimum_waypoint_separation_m':sampled_min,
-                'separation_threshold_m':float(threshold),
-                'violating_pairs':int(violation.any(axis=0).sum()),
-                'violating_pair_intervals':int(violation.sum())}
+        result=linear_separation(start,positions,threshold,robot_radius)
     result['rejection_reason']=None if result['zero_collision'] else 'between_waypoint_collision'
     return result

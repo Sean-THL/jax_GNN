@@ -293,6 +293,7 @@ def main():
                         help="Maximum speed in distance units/second (overrides the scenario)")
     parser.add_argument("--maximum-acceleration", type=float,
                         help="Hard acceleration norm bound for double-integrator dynamics")
+    parser.add_argument('--dynamics',choices=('waypoints','double_integrator','single_integrator'),help='Override the scenario dynamics')
     parser.add_argument("--collision-weight", type=float,
                         help="Override the soft pairwise collision penalty weight")
     parser.add_argument("--iterations", type=int, default=5)
@@ -324,6 +325,8 @@ def main():
         parser.error(str(error))
     if start.shape != goal.shape or start.ndim != 2 or start.shape[1] != 2:
         parser.error("scenario start and goal must have matching (robots, 2) arrays")
+    if args.dynamics is not None:
+        config=replace(config,dynamics=args.dynamics)
     if args.sampling_time is not None:
         config = replace(config, sampling_time=args.sampling_time)
     if args.maximum_speed is not None:
@@ -350,15 +353,16 @@ def main():
         parser.error("noise-fraction must be nonnegative")
     trajectory_noise = (
         args.noise if args.noise is not None
-        else args.noise_fraction * (config.maximum_acceleration if config.dynamics == "double_integrator" else config.maximum_step)
+        else args.noise_fraction * (config.maximum_acceleration if config.dynamics == "double_integrator" else config.maximum_speed if config.dynamics=='single_integrator' else config.maximum_step)
     )
     if trajectory_noise < 0:
         parser.error("noise must be nonnegative")
-    if config.dynamics == "double_integrator":
+    if config.dynamics in ("double_integrator","single_integrator"):
         particles = initial_controls(start, goal, args.particles, args.steps, config, trajectory_noise, args.seed)
         distance = np.linalg.norm(goal-start, axis=-1).max()
-        if np.allclose(config.initial_velocity, 0) and distance > 0.5*config.maximum_acceleration*(args.steps*config.sampling_time)**2:
+        if config.dynamics=='double_integrator' and np.allclose(config.initial_velocity, 0) and distance > 0.5*config.maximum_acceleration*(args.steps*config.sampling_time)**2:
             parser.error("horizon too short to reach these goals from rest under the acceleration bound")
+        # SI arrival is soft: short horizons remain runnable and report goal error.
     else:
         particles = initial_trajectories(start, goal, args.particles, args.steps, trajectory_noise, args.seed)
     scorer = ConformalGraphScorer(
@@ -400,6 +404,8 @@ def main():
                     "maximum_acceleration_norm", "maximum_velocity_norm", "terminal_velocity_mean_norm"
                 )
             }
+        if run_config.dynamics=='single_integrator' and trajectory is not None:
+            results[name]['dynamics_metrics']={key:planner_report[key] for key in ('maximum_velocity_norm','terminal_velocity_mean_norm')}
 
     print(f"Scenario: {scenario.get('description', args.scenario.name)}")
     print(f"Robots: {len(start)}; particles: {args.particles}; future steps: {args.steps}; iterations: {args.iterations}")
@@ -410,11 +416,13 @@ def main():
     if config.dynamics == "double_integrator":
         print(f"Dynamics: double integrator; hard acceleration norm <= {config.maximum_acceleration:g} m/s^2; "
               f"horizon {args.steps * config.sampling_time:g} s; speed is a soft cost")
+    elif config.dynamics=='single_integrator':
+        print(f'Dynamics: single integrator; hard velocity norm <= {config.maximum_speed:g} m/s; horizon {args.steps*config.sampling_time:g} s; position is the state')
     if config.robot_radius is not None:
         print(f"Robot radius: {config.robot_radius:g} m; body diameter: {2*config.robot_radius:g} m; "
               f"separation target: {config.minimum_separation:g} m; surface gap target: {config.minimum_separation-2*config.robot_radius:g} m")
     print(f"Initial particle noise: {trajectory_noise:g} "
-          f"({'acceleration units' if config.dynamics == 'double_integrator' else 'position units'})")
+          f"({'acceleration units' if config.dynamics == 'double_integrator' else 'velocity units' if config.dynamics=='single_integrator' else 'position units'})")
     if config.required_robustness > (len(start) + 1) // 2:
         print(f"WARNING: r={config.required_robustness} is infeasible for {len(start)} robots; "
               "this run will report Success=NO.")
@@ -441,7 +449,7 @@ def main():
               f"{value['wall_seconds']:9.3f}")
     print("Exact r uses exhaustive subset checks only for scenarios with at most 10 robots.")
     print("Seconds measures optimization and final CP filtering; scorer setup and evaluation are excluded.")
-    print("Speed and terminal goals are soft costs; double-integrator acceleration is hard bounded.")
+    print('Terminal goals are soft; SI velocity and DI acceleration are hard bounded. DI speed is a soft cost.')
     print(f"Final collision filter: {'ON' if config.collision_filter else 'OFF'}; "
           f"requires center separation >= {config.minimum_separation:g} m throughout each motion interval.")
     print("The CP bound is a prediction, not a guarantee for the trajectory selected by search.")
@@ -453,8 +461,8 @@ def main():
             "calibration": str(args.calibration),
             "parameters": {"robots": len(start), "particles": args.particles, "steps": args.steps,
                            "iterations": args.iterations, "noise": trajectory_noise,
-                           "noise_fraction": trajectory_noise / (config.maximum_acceleration if config.dynamics == "double_integrator" else config.maximum_step),
-                           "noise_units": "m/s^2" if config.dynamics == "double_integrator" else "position units",
+                           "noise_fraction": trajectory_noise / (config.maximum_acceleration if config.dynamics == "double_integrator" else config.maximum_speed if config.dynamics=='single_integrator' else config.maximum_step),
+                           "noise_units": "m/s^2" if config.dynamics == "double_integrator" else "m/s" if config.dynamics=='single_integrator' else "position units",
                            "seed": args.seed},
             "config": {"adversary_bound": adversary_bound,
                        "required_robustness": config.required_robustness,

@@ -1,0 +1,37 @@
+{
+  "primary_cases": [
+    "50:20:50",
+    "50:20:100",
+    "25:10:50",
+    "25:10:100"
+  ],
+  "primary_weights": [
+    10,
+    1000,
+    10000,
+    100000
+  ],
+  "adaptive_cases": [
+    "25:10:50",
+    "25:10:100"
+  ],
+  "adaptive_weights": [
+    100
+  ],
+  "adaptive_reason": "At 25 robots and 50 particles, weight 10 retains all updated CP candidates while weight 1000 loses them; test the intermediate weight.",
+  "adaptive_command": "JAX_PLATFORMS=cuda .venv/bin/python -m planning.run_robustness_collision_trials --cases 25:10:50 25:10:100 --weights 100 --manifest-name adaptive_manifest.json",
+  "tests_passed": 68,
+  "fixed_settings": {
+    "steps": 320,
+    "sampling_time": 0.05,
+    "iterations": 5,
+    "seed": 42,
+    "robot_radius": 0.2,
+    "minimum_separation": 0.45,
+    "communication_radius": 3,
+    "cp_weight": 5,
+    "goal_weight": 10,
+    "degree_weight": 2,
+    "fixed_goal": false
+  }
+}

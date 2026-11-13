@@ -1,0 +1,63 @@
+{
+  "complete": true,
+  "completed_utc": "2026-11-12T16:56:40.810368+00:00",
+  "tests_passed": 68,
+  "completed_weight_population_configurations": 18,
+  "saved_policy_results": 36,
+  "candidate_evaluations": 8100,
+  "joint_successful_configurations": 0,
+  "best_cp_only_results": [
+    {
+      "robots": 50,
+      "required_robustness": 20,
+      "particles": 50,
+      "collision_weight": 100000.0,
+      "minimum_cp_bound": 22,
+      "physical_overlap_pairs": 282,
+      "violating_pairs": 324,
+      "goal_mean_distance_m": 1.0170570233668221e-05,
+      "solving_seconds": 115.63473367400002
+    },
+    {
+      "robots": 50,
+      "required_robustness": 20,
+      "particles": 100,
+      "collision_weight": 1000.0,
+      "minimum_cp_bound": 22,
+      "physical_overlap_pairs": 262,
+      "violating_pairs": 298,
+      "goal_mean_distance_m": 0.5795581177019135,
+      "solving_seconds": 278.6168008169989
+    },
+    {
+      "robots": 25,
+      "required_robustness": 10,
+      "particles": 50,
+      "collision_weight": 100.0,
+      "minimum_cp_bound": 13,
+      "physical_overlap_pairs": 58,
+      "violating_pairs": 85,
+      "goal_mean_distance_m": 0.22375711979567037,
+      "solving_seconds": 91.27295812200464
+    },
+    {
+      "robots": 25,
+      "required_robustness": 10,
+      "particles": 100,
+      "collision_weight": 1000.0,
+      "minimum_cp_bound": 10,
+      "physical_overlap_pairs": 46,
+      "violating_pairs": 61,
+      "goal_mean_distance_m": 0.8371876283998771,
+      "solving_seconds": 178.4593477410017
+    }
+  ],
+  "checks": [
+    "Exact r=20 and r=10 preserved; no rounding via F.",
+    "25-robot geometry equals the first 25 saved start/goal pairs.",
+    "All other planning settings and soft goals preserved.",
+    "Both CUDA manifests complete.",
+    "Best saved continuous-time collision metrics independently recomputed.",
+    "Every no-feasible result has null waypoints, zero accepted candidates and explicit rejection counters."
+  ]
+}

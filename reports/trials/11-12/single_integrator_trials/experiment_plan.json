@@ -1,0 +1,67 @@
+{
+  "dynamics": "single_integrator",
+  "cases": {
+    "50:21:100": [
+      10.0,
+      1000.0,
+      10000.0,
+      100000.0
+    ],
+    "50:21:50": [
+      10.0,
+      1000.0,
+      6900.0,
+      30000.0,
+      100000.0
+    ],
+    "25:10:100": [
+      10.0,
+      100.0,
+      1000.0,
+      10000.0,
+      100000.0
+    ],
+    "25:10:50": [
+      10.0,
+      100.0,
+      1000.0,
+      10000.0,
+      100000.0
+    ],
+    "50:20:100": [
+      10.0,
+      1000.0,
+      10000.0,
+      100000.0
+    ],
+    "50:20:50": [
+      10.0,
+      1000.0,
+      10000.0,
+      100000.0
+    ]
+  },
+  "configurations": 27,
+  "fixed_settings": {
+    "steps": 320,
+    "sampling_time": 0.05,
+    "iterations": 5,
+    "seed": 42,
+    "noise": 0.1,
+    "noise_units": "m/s",
+    "maximum_speed": 3,
+    "robot_radius": 0.2,
+    "minimum_separation": 0.45,
+    "communication_radius": 3,
+    "fixed_goal": false
+  },
+  "tests_passed": 76,
+  "full_runner_command": "JAX_PLATFORMS=cuda .venv/bin/python -m planning.run_single_integrator_trials",
+  "active_first_sweep_session": 83978,
+  "next_action": "Complete: matched sweeps, independent artifact validation and all-four-method CLI smoke test passed.",
+  "report_command": ".venv/bin/python -m planning.report_robustness_collision_trials --root reports/trials/11-12/single_integrator_trials --dynamics single_integrator",
+  "first_sweep_noise_fraction_backfill_required": false,
+  "cache_validation": "hard_batch_cache_validation.json",
+  "complete": true,
+  "completed_runner_session": 49644
+}

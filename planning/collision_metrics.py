@@ -1,5 +1,30 @@
-"""Pairwise separation metrics for zero-order-held double-integrator paths."""
+"""Continuous pairwise separation for held velocity or acceleration controls."""
 import numpy as np
+
+
+def linear_separation(start,positions,threshold,robot_radius=None):
+    """Exact pairwise minima for piecewise-constant velocity motion."""
+    path=np.concatenate((np.asarray(start,dtype=float)[None],np.asarray(positions,dtype=float)))
+    i,j=np.triu_indices(path.shape[1],1)
+    relative=path[:-1,i]-path[:-1,j]
+    change=(path[1:,i]-path[1:,j])-relative
+    squared=np.sum(change*change,axis=-1)
+    fraction=np.zeros_like(squared)
+    np.divide(-np.sum(relative*change,axis=-1),squared,out=fraction,where=squared>0)
+    fraction=np.clip(fraction,0.,1.)
+    minimum=np.linalg.norm(relative+fraction[...,None]*change,axis=-1)
+    violation=minimum<threshold-1e-9
+    sampled=np.linalg.norm(path[:,i]-path[:,j],axis=-1)
+    result=dict(zero_collision=bool(not violation.any()),minimum_continuous_separation_m=float(minimum.min()),
+        minimum_waypoint_separation_m=float(sampled.min()),separation_threshold_m=float(threshold),
+        violating_pairs=int(violation.any(axis=0).sum()),violating_pair_intervals=int(violation.sum()),
+        waypoint_pair_violations=int((sampled<threshold-1e-9).sum()))
+    if robot_radius is not None:
+        diameter=2*float(robot_radius);overlap=minimum<diameter-1e-9
+        result.update(robot_radius_m=float(robot_radius),body_diameter_m=diameter,
+            physical_overlap_pairs=int(overlap.any(axis=0).sum()),physical_overlap_pair_intervals=int(overlap.sum()),
+            zero_body_overlap=bool(not overlap.any()),minimum_surface_gap_m=float(minimum.min()-diameter))
+    return result
 
 
 def continuous_separation(start, positions, velocities, controls, dt, threshold, initial_velocity=(0.,0.), robot_radius=None):

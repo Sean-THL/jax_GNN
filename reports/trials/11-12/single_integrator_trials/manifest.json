@@ -1,0 +1,273 @@
+{
+  "started_utc": "2026-11-12T23:07:21.640096+00:00",
+  "complete": true,
+  "dynamics": "single_integrator",
+  "control_units": "m/s",
+  "maximum_speed": 3.0,
+  "noise": 0.1,
+  "jax_platforms": "cuda",
+  "cases": [
+    {
+      "robots": 50,
+      "required_robustness": 21,
+      "particles": 50,
+      "weights": [
+        10.0,
+        1000.0,
+        6900.0,
+        30000.0,
+        100000.0
+      ],
+      "reference_results": {
+        "10.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-11/large_particle_collision_trials/particles_50/cp_only/weight_10.json",
+        "1000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-11/large_particle_collision_trials/particles_50/cp_only/weight_1000.json",
+        "100000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-11/large_particle_collision_trials/particles_50/cp_only/weight_100000.json",
+        "30000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-11/large_particle_collision_trials/particles_50/cp_only/weight_30000.json",
+        "6900.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-11/large_particle_collision_trials/particles_50/cp_only/weight_6900.json"
+      },
+      "command": [
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/.venv/bin/python",
+        "-m",
+        "planning.tune_collision_weight",
+        "--dynamics",
+        "single_integrator",
+        "--robots",
+        "50",
+        "--required-robustness",
+        "21",
+        "--particles",
+        "50",
+        "--weights",
+        "10.0",
+        "1000.0",
+        "6900.0",
+        "30000.0",
+        "100000.0",
+        "--progress",
+        "--cache-hard-batches",
+        "--output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_50_r21/particles_50/joint_filter",
+        "--compare-cp-only-output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_50_r21/particles_50/cp_only"
+      ],
+      "complete": true
+    },
+    {
+      "robots": 50,
+      "required_robustness": 21,
+      "particles": 100,
+      "weights": [
+        10.0,
+        1000.0,
+        10000.0,
+        100000.0
+      ],
+      "reference_results": {
+        "10.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-11/large_particle_collision_trials/particles_100/cp_only/weight_10.json",
+        "1000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-11/large_particle_collision_trials/particles_100/cp_only/weight_1000.json",
+        "10000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-11/large_particle_collision_trials/particles_100/cp_only/weight_10000.json",
+        "100000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-11/large_particle_collision_trials/particles_100/cp_only/weight_100000.json"
+      },
+      "command": [
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/.venv/bin/python",
+        "-m",
+        "planning.tune_collision_weight",
+        "--dynamics",
+        "single_integrator",
+        "--robots",
+        "50",
+        "--required-robustness",
+        "21",
+        "--particles",
+        "100",
+        "--weights",
+        "10.0",
+        "1000.0",
+        "10000.0",
+        "100000.0",
+        "--progress",
+        "--cache-hard-batches",
+        "--output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_50_r21/particles_100/joint_filter",
+        "--compare-cp-only-output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_50_r21/particles_100/cp_only"
+      ],
+      "complete": true
+    },
+    {
+      "robots": 50,
+      "required_robustness": 20,
+      "particles": 50,
+      "weights": [
+        10.0,
+        1000.0,
+        10000.0,
+        100000.0
+      ],
+      "reference_results": {
+        "10.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_50_r20/particles_50/cp_only/weight_10.json",
+        "1000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_50_r20/particles_50/cp_only/weight_1000.json",
+        "10000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_50_r20/particles_50/cp_only/weight_10000.json",
+        "100000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_50_r20/particles_50/cp_only/weight_100000.json"
+      },
+      "command": [
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/.venv/bin/python",
+        "-m",
+        "planning.tune_collision_weight",
+        "--dynamics",
+        "single_integrator",
+        "--robots",
+        "50",
+        "--required-robustness",
+        "20",
+        "--particles",
+        "50",
+        "--weights",
+        "10.0",
+        "1000.0",
+        "10000.0",
+        "100000.0",
+        "--progress",
+        "--cache-hard-batches",
+        "--output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_50_r20/particles_50/joint_filter",
+        "--compare-cp-only-output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_50_r20/particles_50/cp_only"
+      ],
+      "complete": true
+    },
+    {
+      "robots": 50,
+      "required_robustness": 20,
+      "particles": 100,
+      "weights": [
+        10.0,
+        1000.0,
+        10000.0,
+        100000.0
+      ],
+      "reference_results": {
+        "10.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_50_r20/particles_100/cp_only/weight_10.json",
+        "1000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_50_r20/particles_100/cp_only/weight_1000.json",
+        "10000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_50_r20/particles_100/cp_only/weight_10000.json",
+        "100000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_50_r20/particles_100/cp_only/weight_100000.json"
+      },
+      "command": [
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/.venv/bin/python",
+        "-m",
+        "planning.tune_collision_weight",
+        "--dynamics",
+        "single_integrator",
+        "--robots",
+        "50",
+        "--required-robustness",
+        "20",
+        "--particles",
+        "100",
+        "--weights",
+        "10.0",
+        "1000.0",
+        "10000.0",
+        "100000.0",
+        "--progress",
+        "--cache-hard-batches",
+        "--output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_50_r20/particles_100/joint_filter",
+        "--compare-cp-only-output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_50_r20/particles_100/cp_only"
+      ],
+      "complete": true
+    },
+    {
+      "robots": 25,
+      "required_robustness": 10,
+      "particles": 50,
+      "weights": [
+        10.0,
+        100.0,
+        1000.0,
+        10000.0,
+        100000.0
+      ],
+      "reference_results": {
+        "10.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_25_r10/particles_50/cp_only/weight_10.json",
+        "100.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_25_r10/particles_50/cp_only/weight_100.json",
+        "1000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_25_r10/particles_50/cp_only/weight_1000.json",
+        "10000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_25_r10/particles_50/cp_only/weight_10000.json",
+        "100000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_25_r10/particles_50/cp_only/weight_100000.json"
+      },
+      "command": [
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/.venv/bin/python",
+        "-m",
+        "planning.tune_collision_weight",
+        "--dynamics",
+        "single_integrator",
+        "--robots",
+        "25",
+        "--required-robustness",
+        "10",
+        "--particles",
+        "50",
+        "--weights",
+        "10.0",
+        "100.0",
+        "1000.0",
+        "10000.0",
+        "100000.0",
+        "--progress",
+        "--cache-hard-batches",
+        "--output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_25_r10/particles_50/joint_filter",
+        "--compare-cp-only-output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_25_r10/particles_50/cp_only"
+      ],
+      "complete": true
+    },
+    {
+      "robots": 25,
+      "required_robustness": 10,
+      "particles": 100,
+      "weights": [
+        10.0,
+        100.0,
+        1000.0,
+        10000.0,
+        100000.0
+      ],
+      "reference_results": {
+        "10.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_25_r10/particles_100/cp_only/weight_10.json",
+        "100.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_25_r10/particles_100/cp_only/weight_100.json",
+        "1000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_25_r10/particles_100/cp_only/weight_1000.json",
+        "10000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_25_r10/particles_100/cp_only/weight_10000.json",
+        "100000.0": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/robustness_collision_trials/robots_25_r10/particles_100/cp_only/weight_100000.json"
+      },
+      "command": [
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/.venv/bin/python",
+        "-m",
+        "planning.tune_collision_weight",
+        "--dynamics",
+        "single_integrator",
+        "--robots",
+        "25",
+        "--required-robustness",
+        "10",
+        "--particles",
+        "100",
+        "--weights",
+        "10.0",
+        "100.0",
+        "1000.0",
+        "10000.0",
+        "100000.0",
+        "--progress",
+        "--cache-hard-batches",
+        "--output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_25_r10/particles_100/joint_filter",
+        "--compare-cp-only-output",
+        "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/trials/11-12/single_integrator_trials/robots_25_r10/particles_100/cp_only"
+      ],
+      "complete": true
+    }
+  ],
+  "completed_utc": "2026-11-13T00:05:30.858967+00:00"
+}

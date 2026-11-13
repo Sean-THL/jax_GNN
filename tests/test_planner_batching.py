@@ -1,4 +1,5 @@
 import unittest
+from collections import OrderedDict
 from unittest.mock import patch
 import jax
 import jax.numpy as jnp
@@ -9,6 +10,28 @@ from planning.svgd_cp_planner import ConformalGraphScorer,PlannerConfig,_smooth_
 
 
 class PlannerBatchingTests(unittest.TestCase):
+    def test_cache_preserves_order_partial_batches_and_cp_settings(self):
+        a=np.array([[0.,0.],[.1,0.],[0.,.1]],np.float32)
+        b=np.array([[0.,0.],[3.,0.],[0.,3.]],np.float32)
+        positions=np.stack((a,b,b,a,a,b,a))
+        def predict(model,records,batch_size,representation):
+            labels=np.array([int(record['features'][:,0].sum()) for record in records])
+            probabilities=np.full((len(records),26),.001);probabilities[np.arange(len(records)),labels]=.975
+            return probabilities,np.zeros(len(records),int)
+        scorer=ConformalGraphScorer.__new__(ConformalGraphScorer)
+        scorer.model=None;scorer.batch_size=2;scorer.graph_chunk_size=4
+        scorer.hard_batch_cache=OrderedDict();scorer.hard_batch_cache_capacity=8
+        scorer.hard_batch_cache_hits=0;scorer.hard_batch_cache_misses=0
+        with patch('planning.svgd_cp_planner.predict_probabilities',side_effect=predict):
+            for kind,quantile in (('one_sided',0.),('one_sided',1.),('lac',.05)):
+                scorer.kind=kind;scorer.quantile=quantile;scorer.cache_hard_batches=False
+                expected=scorer.lower_bounds(positions,1.)
+                scorer.cache_hard_batches=True
+                first=scorer.lower_bounds(positions,1.);second=scorer.lower_bounds(positions,1.)
+                np.testing.assert_array_equal(first,expected);np.testing.assert_array_equal(second,expected)
+        self.assertGreater(scorer.hard_batch_cache_hits,0)
+        self.assertLessEqual(len(scorer.hard_batch_cache),8)
+
     def test_bounded_base_values_and_gradients_match_full_vmap(self):
         config=PlannerConfig(3.,.45,2.,.05,2)
         start=jnp.array([[0.,0.],[.3,0.],[0.,.3]])

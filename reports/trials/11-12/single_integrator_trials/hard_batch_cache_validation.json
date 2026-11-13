@@ -1,0 +1,46 @@
+{
+  "checkpoint": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/checkpoints/full_run_xK0R3I/new_gatv2.msgpack",
+  "batch_size": 32,
+  "checks": [
+    {
+      "robots": 50,
+      "graphs": 195,
+      "uncached_seconds": 3.594541146994743,
+      "first_cached_seconds": 0.1466616760008037,
+      "repeated_seconds": 0.006849800003692508,
+      "unique_bounds": [
+        0,
+        1,
+        2,
+        12,
+        13,
+        14,
+        15,
+        19,
+        20,
+        21,
+        22
+      ],
+      "identical_bounds": true
+    },
+    {
+      "robots": 25,
+      "graphs": 195,
+      "uncached_seconds": 2.9820550849981373,
+      "first_cached_seconds": 0.14644887200120138,
+      "repeated_seconds": 0.00395709699660074,
+      "unique_bounds": [
+        0,
+        1,
+        2,
+        11,
+        12,
+        13
+      ],
+      "identical_bounds": true
+    }
+  ],
+  "hits": 14,
+  "misses": 14,
+  "scope": "Identical ordered hard-graph minibatches only; frozen checkpoint and fixed CP quantile. Smooth gradients are not cached."
+}

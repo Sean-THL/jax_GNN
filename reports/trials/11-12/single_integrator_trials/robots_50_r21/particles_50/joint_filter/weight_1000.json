@@ -1,0 +1,580 @@
+{
+  "summary": {
+    "collision_weight": 1000.0,
+    "cp_success": false,
+    "particles": 50,
+    "status": "no_feasible_trajectory",
+    "robots": 50,
+    "required_robustness": 21,
+    "dynamics": "single_integrator",
+    "cp_passing_candidates": 300,
+    "accepted_candidates": 0,
+    "collision_rejected_candidates": 300,
+    "collision_filter_enabled": true,
+    "minimum_cp_bound": null,
+    "goal_mean_distance_m": null,
+    "maximum_acceleration_m_s2": null,
+    "maximum_speed_m_s": null,
+    "selected_population": null,
+    "solving_seconds": 159.12243757300166,
+    "origin": "shared_population_trial"
+  },
+  "config": {
+    "communication_radius": 3.0,
+    "minimum_separation": 0.45,
+    "maximum_speed": 3.0,
+    "sampling_time": 0.05,
+    "required_robustness": 21,
+    "connectivity_mode": "smooth",
+    "connectivity_sigma": null,
+    "cp_kind": "one_sided",
+    "cp_coverage": 0.9,
+    "cp_weight": 5.0,
+    "goal_weight": 10.0,
+    "path_weight": 0.05,
+    "collision_weight": 1000.0,
+    "speed_weight": 10.0,
+    "degree_weight": 2.0,
+    "smooth_temperature": 0.1,
+    "svgd_step_size": 0.01,
+    "cp_smoothing": 0.1,
+    "cp_directions": 2,
+    "cp_gradient": "autodiff",
+    "fixed_goal": false,
+    "dynamics": "single_integrator",
+    "maximum_acceleration": 1.0,
+    "initial_velocity": [
+      0.0,
+      0.0
+    ],
+    "goal_velocity": [
+      0.0,
+      0.0
+    ],
+    "terminal_velocity_weight": 2.0,
+    "control_weight": 0.01,
+    "robot_radius": 0.2,
+    "collision_filter": true
+  },
+  "parameters": {
+    "robots": 50,
+    "particles": 50,
+    "steps": 320,
+    "iterations": 5,
+    "noise": 0.1,
+    "noise_fraction": 0.03333333333333333,
+    "noise_units": "m/s",
+    "seed": 42
+  },
+  "source": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/reports/filtered_results/11-09/100robots_r21_four_methods.json",
+  "start": [
+    [
+      4.310476303100586,
+      7.668933868408203
+    ],
+    [
+      4.099380016326904,
+      6.95187520980835
+    ],
+    [
+      3.9253768920898438,
+      5.995378017425537
+    ],
+    [
+      4.776663780212402,
+      7.732443809509277
+    ],
+    [
+      5.27295446395874,
+      7.334393501281738
+    ],
+    [
+      5.4020586013793945,
+      5.88232946395874
+    ],
+    [
+      4.746896266937256,
+      6.428686141967773
+    ],
+    [
+      4.634774208068848,
+      7.153683662414551
+    ],
+    [
+      3.6195359230041504,
+      6.793989658355713
+    ],
+    [
+      4.625795841217041,
+      5.615244388580322
+    ],
+    [
+      5.4391350746154785,
+      6.807552337646484
+    ],
+    [
+      4.222469329833984,
+      6.461880207061768
+    ],
+    [
+      5.8266496658325195,
+      6.336343765258789
+    ],
+    [
+      5.7834930419921875,
+      7.144247055053711
+    ],
+    [
+      3.799959897994995,
+      7.322725772857666
+    ],
+    [
+      4.936022758483887,
+      6.0097832679748535
+    ],
+    [
+      4.455249309539795,
+      6.042155742645264
+    ],
+    [
+      5.298032760620117,
+      6.324598789215088
+    ],
+    [
+      5.098110198974609,
+      5.540823459625244
+    ],
+    [
+      3.6192593574523926,
+      6.334785461425781
+    ],
+    [
+      4.985116004943848,
+      6.843366622924805
+    ],
+    [
+      4.165409564971924,
+      5.604790210723877
+    ],
+    [
+      5.251301288604736,
+      7.8343634605407715
+    ],
+    [
+      5.704521179199219,
+      7.588192939758301
+    ],
+    [
+      3.689422607421875,
+      7.762302398681641
+    ],
+    [
+      3.141947031021118,
+      6.53505802154541
+    ],
+    [
+      4.571534633636475,
+      5.1414475440979
+    ],
+    [
+      6.27671480178833,
+      6.670821666717529
+    ],
+    [
+      4.5965094566345215,
+      8.343619346618652
+    ],
+    [
+      3.633852481842041,
+      5.482386589050293
+    ],
+    [
+      5.6914143562316895,
+      5.401355266571045
+    ],
+    [
+      3.2514069080352783,
+      7.351877689361572
+    ],
+    [
+      2.9250380992889404,
+      6.102904319763184
+    ],
+    [
+      2.790205240249634,
+      6.929013252258301
+    ],
+    [
+      4.153785228729248,
+      8.257568359375
+    ],
+    [
+      5.294932842254639,
+      8.385449409484863
+    ],
+    [
+      6.145599842071533,
+      7.760290145874023
+    ],
+    [
+      6.492475986480713,
+      6.188852787017822
+    ],
+    [
+      4.006979942321777,
+      5.159825325012207
+    ],
+    [
+      6.2117133140563965,
+      5.817424297332764
+    ],
+    [
+      5.287887096405029,
+      5.010819911956787
+    ],
+    [
+      3.680799722671509,
+      4.72952938079834
+    ],
+    [
+      4.441956043243408,
+      4.5379109382629395
+    ],
+    [
+      3.718032121658325,
+      8.457103729248047
+    ],
+    [
+      5.8403120040893555,
+      8.380611419677734
+    ],
+    [
+      2.950523614883423,
+      5.387777805328369
+    ],
+    [
+      2.95717716217041,
+      7.845083713531494
+    ],
+    [
+      5.732787609100342,
+      4.86161470413208
+    ],
+    [
+      2.7689430713653564,
+      7.415639877319336
+    ],
+    [
+      2.968477249145508,
+      4.930506229400635
+    ]
+  ],
+  "goal": [
+    [
+      27.943809509277344,
+      4.565158367156982
+    ],
+    [
+      28.449113845825195,
+      4.3919677734375
+    ],
+    [
+      28.84358024597168,
+      3.586071729660034
+    ],
+    [
+      27.545114517211914,
+      3.8915562629699707
+    ],
+    [
+      29.405237197875977,
+      4.440283298492432
+    ],
+    [
+      29.19875144958496,
+      3.922131061553955
+    ],
+    [
+      28.98209571838379,
+      2.884272813796997
+    ],
+    [
+      29.606266021728516,
+      3.595008373260498
+    ],
+    [
+      29.039819717407227,
+      4.730269432067871
+    ],
+    [
+      28.386825561523438,
+      3.817009925842285
+    ],
+    [
+      28.4007625579834,
+      2.8272464275360107
+    ],
+    [
+      27.992063522338867,
+      3.4620325565338135
+    ],
+    [
+      28.493816375732422,
+      4.964042663574219
+    ],
+    [
+      27.894168853759766,
+      3.0056614875793457
+    ],
+    [
+      27.46984100341797,
+      4.358325958251953
+    ],
+    [
+      29.765626907348633,
+      4.019937515258789
+    ],
+    [
+      29.373071670532227,
+      3.1142170429229736
+    ],
+    [
+      28.44504165649414,
+      3.2874252796173096
+    ],
+    [
+      27.5353946685791,
+      3.439906358718872
+    ],
+    [
+      28.043312072753906,
+      5.032913684844971
+    ],
+    [
+      27.987335205078125,
+      4.066016674041748
+    ],
+    [
+      28.875995635986328,
+      4.246431827545166
+    ],
+    [
+      27.567028045654297,
+      4.818785190582275
+    ],
+    [
+      28.991762161254883,
+      5.2202348709106445
+    ],
+    [
+      29.617488861083984,
+      4.891486167907715
+    ],
+    [
+      29.892681121826172,
+      4.484827995300293
+    ],
+    [
+      28.703245162963867,
+      5.62986946105957
+    ],
+    [
+      28.671586990356445,
+      2.433612823486328
+    ],
+    [
+      29.348398208618164,
+      2.5216031074523926
+    ],
+    [
+      29.39558982849121,
+      5.4375152587890625
+    ],
+    [
+      27.927268981933594,
+      5.56108283996582
+    ],
+    [
+      27.12544822692871,
+      3.699723720550537
+    ],
+    [
+      29.889230728149414,
+      3.2055773735046387
+    ],
+    [
+      29.85006332397461,
+      5.400669574737549
+    ],
+    [
+      27.96290397644043,
+      2.4389853477478027
+    ],
+    [
+      27.332780838012695,
+      2.5669708251953125
+    ],
+    [
+      29.85953712463379,
+      2.5039656162261963
+    ],
+    [
+      27.160085678100586,
+      5.042215347290039
+    ],
+    [
+      29.0954532623291,
+      5.990372657775879
+    ],
+    [
+      27.373863220214844,
+      5.592421531677246
+    ],
+    [
+      28.623929977416992,
+      6.105194091796875
+    ],
+    [
+      27.80994415283203,
+      6.009320259094238
+    ],
+    [
+      26.92457389831543,
+      4.399012565612793
+    ],
+    [
+      26.34976577758789,
+      3.924424409866333
+    ],
+    [
+      26.46334457397461,
+      3.396585702896118
+    ],
+    [
+      26.519474029541016,
+      4.996532917022705
+    ],
+    [
+      27.068883895874023,
+      3.175535202026367
+    ],
+    [
+      26.594449996948242,
+      2.730563163757324
+    ],
+    [
+      26.81793975830078,
+      5.700355052947998
+    ],
+    [
+      27.58955955505371,
+      2.0095572471618652
+    ]
+  ],
+  "checkpoint": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/checkpoints/full_run_xK0R3I/new_gatv2.msgpack",
+  "calibration": "/home/robin/Seans_Project/DASC/GNN-Based_r-robustness_multi_robot/jax_GNN/calib_data.json",
+  "waypoints": null,
+  "planner_report": {
+    "status": "no_feasible_trajectory",
+    "dynamics": "single_integrator",
+    "control_units": "m/s",
+    "cp_gradient": "autodiff",
+    "optimization_cp_cost": "continuous_expected_class_surrogate",
+    "history": [
+      {
+        "best_cost": 139073.5361328125,
+        "best_lower_bound": 22,
+        "incumbent_cost": null,
+        "incumbent_lower_bound": null,
+        "seconds": 26.588694298996415
+      },
+      {
+        "best_cost": 133314.4320678711,
+        "best_lower_bound": 22,
+        "incumbent_cost": null,
+        "incumbent_lower_bound": null,
+        "seconds": 26.737769242994545
+      },
+      {
+        "best_cost": 128138.9404296875,
+        "best_lower_bound": 22,
+        "incumbent_cost": null,
+        "incumbent_lower_bound": null,
+        "seconds": 26.686137983000663
+      },
+      {
+        "best_cost": 123626.85083007812,
+        "best_lower_bound": 22,
+        "incumbent_cost": null,
+        "incumbent_lower_bound": null,
+        "seconds": 25.567854638000426
+      },
+      {
+        "best_cost": 119729.54565429688,
+        "best_lower_bound": 22,
+        "incumbent_cost": null,
+        "incumbent_lower_bound": null,
+        "seconds": 23.404578547997517
+      }
+    ],
+    "passing_candidates": 0,
+    "evaluated_candidates": 300,
+    "population_acceptance": [
+      {
+        "population": 0,
+        "cp_passing_candidates": 50,
+        "accepted_candidates": 0
+      },
+      {
+        "population": 1,
+        "cp_passing_candidates": 50,
+        "accepted_candidates": 0
+      },
+      {
+        "population": 2,
+        "cp_passing_candidates": 50,
+        "accepted_candidates": 0
+      },
+      {
+        "population": 3,
+        "cp_passing_candidates": 50,
+        "accepted_candidates": 0
+      },
+      {
+        "population": 4,
+        "cp_passing_candidates": 50,
+        "accepted_candidates": 0
+      },
+      {
+        "population": 5,
+        "cp_passing_candidates": 50,
+        "accepted_candidates": 0
+      }
+    ],
+    "collision_filter_enabled": true,
+    "cp_passing_candidates": 300,
+    "collision_rejected_candidates": 300,
+    "collision_rejection_reasons": {
+      "waypoint_collision": 300
+    },
+    "separation_threshold_m": 0.45,
+    "index": null,
+    "cost": null,
+    "minimum_lower_bound": null,
+    "selected_population": null,
+    "timing_note": "Same measured solve shared by both acceptance policies; includes joint collision screening."
+  },
+  "metrics": {
+    "status": "no_feasible_trajectory",
+    "waypoints": null,
+    "meets_predicted_target": false,
+    "wall_seconds": 159.12243757300166,
+    "minimum_lower_bound": null,
+    "minimum_exact_robustness": null,
+    "minimum_hard_degree": null,
+    "goal_mean_distance": null,
+    "largest_step": null,
+    "smallest_separation": null,
+    "total_shared_objective": null
+  }
+}

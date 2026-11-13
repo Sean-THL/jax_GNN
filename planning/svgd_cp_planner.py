@@ -8,6 +8,7 @@ motion model must be replaced with the robot system's actual definitions.
 from __future__ import annotations
 
 import json
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
@@ -54,7 +55,7 @@ class PlannerConfig:
     cp_directions: int = 2
     cp_gradient: str = "autodiff"  # continuous GNN surrogate; "spsa" for discrete probes
     fixed_goal: bool = False
-    dynamics: str = "waypoints"  # legacy comparison, or "double_integrator"
+    dynamics: str = "waypoints"  # legacy, double_integrator, or single_integrator
     maximum_acceleration: float = 1.0  # Euclidean norm, m/s^2
     initial_velocity: tuple = (0.0, 0.0)
     goal_velocity: tuple = (0.0, 0.0)
@@ -116,6 +117,11 @@ class ConformalGraphScorer:
         # Preserve inference minibatch boundaries while bounding graph-building
         # memory independently of particles × horizon.
         self.graph_chunk_size = max(self.batch_size, (256 // self.batch_size) * self.batch_size)
+        self.cache_hard_batches=False
+        self.hard_batch_cache=OrderedDict()
+        self.hard_batch_cache_capacity=4096
+        self.hard_batch_cache_hits=0
+        self.hard_batch_cache_misses=0
         self.model = model_class("new", "gatv2")(
             2, 100, 26, nnx.Rngs(int(metadata["seed"])), self.batch_size
         )
@@ -143,6 +149,26 @@ class ConformalGraphScorer:
         bounds = []
         for begin in range(0, len(positions), self.graph_chunk_size):
             records = communication_records(positions[begin:begin+self.graph_chunk_size], radius, mode, sigma)
+            if mode=='hard' and getattr(self,'cache_hard_batches',False):
+                for offset in range(0,len(records),self.batch_size):
+                    batch=records[offset:offset+self.batch_size]
+                    packed=[]
+                    for record in batch:
+                        n=len(record['features']);support=np.zeros((n,n),dtype=np.uint8)
+                        support[record['edge_index'][0],record['edge_index'][1]]=1
+                        packed.append(np.packbits(support).tobytes())
+                    key=(n,len(batch),self.batch_size,self.kind,float(self.quantile),b''.join(packed))
+                    if key in self.hard_batch_cache:
+                        value=self.hard_batch_cache.pop(key);self.hard_batch_cache_hits+=1
+                    else:
+                        probabilities,_=predict_probabilities(self.model,batch,self.batch_size,'new')
+                        value=(np.argmax(lac_prediction_sets(probabilities,self.quantile),axis=1)
+                               if self.kind=='lac' else predict_underbounds(probabilities.argmax(axis=1),self.quantile,26))
+                        self.hard_batch_cache_misses+=1
+                    self.hard_batch_cache[key]=value
+                    if len(self.hard_batch_cache)>self.hard_batch_cache_capacity:self.hard_batch_cache.popitem(last=False)
+                    bounds.append(value.copy())
+                continue
             probabilities, _ = predict_probabilities(self.model, records, self.batch_size, "new")
             if self.kind == "lac":
                 bounds.append(np.argmax(lac_prediction_sets(probabilities, self.quantile), axis=1))
@@ -191,8 +217,16 @@ def svgd_direction(particles: np.ndarray, log_density_gradient: np.ndarray) -> n
     gradient = np.asarray(log_density_gradient, dtype=np.float64).reshape(flat.shape)
     if len(flat) < 2:
         raise ValueError("SVGD needs at least two particles")
-    difference = flat[:, None, :] - flat[None, :, :]
-    distance_squared = np.sum(difference**2, axis=-1)
+    # A full (particles, particles, control_dimensions) difference and its
+    # square exceed 5 GB for 100 × 320 × 50 × 2 control populations. Compute
+    # each upper-triangle row directly instead. Direct differences also avoid
+    # cancellation for nearly identical particles with large coordinates.
+    distance_squared = np.zeros((len(flat), len(flat)), dtype=np.float64)
+    for index in range(len(flat)-1):
+        difference = flat[index+1:] - flat[index]
+        squared = np.sum(difference**2, axis=-1)
+        distance_squared[index,index+1:] = squared
+        distance_squared[index+1:,index] = squared
     upper = distance_squared[np.triu_indices(len(flat), k=1)]
     bandwidth = max(float(np.median(upper)) / np.log(len(flat) + 1), 1e-8)
     kernel = np.exp(-distance_squared / bandwidth)
@@ -282,8 +316,11 @@ def plan(
         from planning.double_integrator_planner import plan_double_integrator
         return plan_double_integrator(start, goal, initial_particles, scorer, config,
                                       iterations, seed, record_particles)
+    if config.dynamics == 'single_integrator':
+        from planning.single_integrator_planner import plan_single_integrator
+        return plan_single_integrator(start,goal,initial_particles,scorer,config,iterations,seed,record_particles)
     if config.dynamics != "waypoints":
-        raise ValueError("dynamics must be 'waypoints' or 'double_integrator'")
+        raise ValueError("dynamics must be waypoints, double_integrator or single_integrator")
     start, goal = np.asarray(start, np.float32), np.asarray(goal, np.float32)
     particles = np.asarray(initial_particles, np.float64).copy()
     if start.shape != goal.shape or start.ndim != 2 or start.shape[1] != 2:

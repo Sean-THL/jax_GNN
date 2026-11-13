@@ -1,0 +1,243 @@
+{
+  "complete": true,
+  "completed_utc": "2026-11-13T00:07:06.515977+00:00",
+  "configurations": 27,
+  "policy_results": 54,
+  "candidate_evaluations": 12000,
+  "joint_successful_configurations": 0,
+  "selected_trajectory_checks": [
+    {
+      "result_file": "robots_25_r10/particles_100/cp_only/weight_10.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 13,
+      "minimum_continuous_separation_m": 0.000934294920747891,
+      "physical_overlap_pairs": 67,
+      "maximum_speed_m_s": 1.633808913230135
+    },
+    {
+      "result_file": "robots_25_r10/particles_100/cp_only/weight_100.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 13,
+      "minimum_continuous_separation_m": 0.006135144329699542,
+      "physical_overlap_pairs": 68,
+      "maximum_speed_m_s": 1.6338089197956631
+    },
+    {
+      "result_file": "robots_25_r10/particles_100/cp_only/weight_1000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 13,
+      "minimum_continuous_separation_m": 0.00714739589226202,
+      "physical_overlap_pairs": 59,
+      "maximum_speed_m_s": 1.6337732353696381
+    },
+    {
+      "result_file": "robots_25_r10/particles_100/cp_only/weight_10000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 13,
+      "minimum_continuous_separation_m": 0.04552015930192959,
+      "physical_overlap_pairs": 37,
+      "maximum_speed_m_s": 1.6326074061593512
+    },
+    {
+      "result_file": "robots_25_r10/particles_100/cp_only/weight_100000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 11,
+      "minimum_continuous_separation_m": 0.0074867142102635394,
+      "physical_overlap_pairs": 41,
+      "maximum_speed_m_s": 2.0909831953617757
+    },
+    {
+      "result_file": "robots_25_r10/particles_50/cp_only/weight_10.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 13,
+      "minimum_continuous_separation_m": 8.350928854014115e-05,
+      "physical_overlap_pairs": 67,
+      "maximum_speed_m_s": 1.6331668219683573
+    },
+    {
+      "result_file": "robots_25_r10/particles_50/cp_only/weight_100.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 13,
+      "minimum_continuous_separation_m": 0.007669172037748493,
+      "physical_overlap_pairs": 67,
+      "maximum_speed_m_s": 1.6331665981394734
+    },
+    {
+      "result_file": "robots_25_r10/particles_50/cp_only/weight_1000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 13,
+      "minimum_continuous_separation_m": 0.005434447434631369,
+      "physical_overlap_pairs": 61,
+      "maximum_speed_m_s": 1.633149512798048
+    },
+    {
+      "result_file": "robots_25_r10/particles_50/cp_only/weight_10000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 13,
+      "minimum_continuous_separation_m": 0.0015853819088940879,
+      "physical_overlap_pairs": 39,
+      "maximum_speed_m_s": 1.6318957099385891
+    },
+    {
+      "result_file": "robots_25_r10/particles_50/cp_only/weight_100000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 11,
+      "minimum_continuous_separation_m": 0.023734995350220497,
+      "physical_overlap_pairs": 37,
+      "maximum_speed_m_s": 2.132682587747549
+    },
+    {
+      "result_file": "robots_50_r20/particles_100/cp_only/weight_10.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.0011093879992322712,
+      "physical_overlap_pairs": 284,
+      "maximum_speed_m_s": 1.6993107616806646
+    },
+    {
+      "result_file": "robots_50_r20/particles_100/cp_only/weight_1000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.0041058885931970135,
+      "physical_overlap_pairs": 273,
+      "maximum_speed_m_s": 1.699309794360769
+    },
+    {
+      "result_file": "robots_50_r20/particles_100/cp_only/weight_10000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.0010699547541828168,
+      "physical_overlap_pairs": 231,
+      "maximum_speed_m_s": 1.699318690254748
+    },
+    {
+      "result_file": "robots_50_r20/particles_100/cp_only/weight_100000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.00014058403243802681,
+      "physical_overlap_pairs": 226,
+      "maximum_speed_m_s": 2.054724224531882
+    },
+    {
+      "result_file": "robots_50_r20/particles_50/cp_only/weight_10.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.001770740095406747,
+      "physical_overlap_pairs": 290,
+      "maximum_speed_m_s": 1.6989277113415076
+    },
+    {
+      "result_file": "robots_50_r20/particles_50/cp_only/weight_1000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.004012904854028174,
+      "physical_overlap_pairs": 271,
+      "maximum_speed_m_s": 1.6989277996210024
+    },
+    {
+      "result_file": "robots_50_r20/particles_50/cp_only/weight_10000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.000956820424055796,
+      "physical_overlap_pairs": 221,
+      "maximum_speed_m_s": 1.6991466073257988
+    },
+    {
+      "result_file": "robots_50_r20/particles_50/cp_only/weight_100000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 20,
+      "minimum_continuous_separation_m": 0.0009224704582319854,
+      "physical_overlap_pairs": 209,
+      "maximum_speed_m_s": 2.102694219040628
+    },
+    {
+      "result_file": "robots_50_r21/particles_100/cp_only/weight_10.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.0019831673030897335,
+      "physical_overlap_pairs": 285,
+      "maximum_speed_m_s": 1.6993104013236802
+    },
+    {
+      "result_file": "robots_50_r21/particles_100/cp_only/weight_1000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.005250796723367931,
+      "physical_overlap_pairs": 272,
+      "maximum_speed_m_s": 1.6993103933637586
+    },
+    {
+      "result_file": "robots_50_r21/particles_100/cp_only/weight_10000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.0008492372479722976,
+      "physical_overlap_pairs": 229,
+      "maximum_speed_m_s": 1.699318927308783
+    },
+    {
+      "result_file": "robots_50_r21/particles_100/cp_only/weight_100000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.001286861757043213,
+      "physical_overlap_pairs": 236,
+      "maximum_speed_m_s": 1.977645771700398
+    },
+    {
+      "result_file": "robots_50_r21/particles_50/cp_only/weight_10.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.0015653189897123782,
+      "physical_overlap_pairs": 292,
+      "maximum_speed_m_s": 1.698929260152618
+    },
+    {
+      "result_file": "robots_50_r21/particles_50/cp_only/weight_1000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.004417288873302213,
+      "physical_overlap_pairs": 273,
+      "maximum_speed_m_s": 1.6989291129700614
+    },
+    {
+      "result_file": "robots_50_r21/particles_50/cp_only/weight_100000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 21,
+      "minimum_continuous_separation_m": 0.0006799734809953502,
+      "physical_overlap_pairs": 202,
+      "maximum_speed_m_s": 2.166050382978442
+    },
+    {
+      "result_file": "robots_50_r21/particles_50/cp_only/weight_30000.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.005050115734267836,
+      "physical_overlap_pairs": 181,
+      "maximum_speed_m_s": 1.6985332498727042
+    },
+    {
+      "result_file": "robots_50_r21/particles_50/cp_only/weight_6900.json",
+      "collision_filter": false,
+      "minimum_cp_bound": 22,
+      "minimum_continuous_separation_m": 0.0005654766247534584,
+      "physical_overlap_pairs": 230,
+      "maximum_speed_m_s": 1.6989343623119268
+    }
+  ],
+  "checks": [
+    "Exact prior DI weight/population cases reproduced.",
+    "Same saved start/goal geometry and exact r targets.",
+    "Position-only SI rollout verified against every saved velocity control.",
+    "Hard 3 m/s velocity bound; soft goal config retained.",
+    "CP bounds at all 320 sampled waypoints meet requested r.",
+    "Every saved continuous linear separation/body-overlap metric independently recomputed.",
+    "No-feasible outputs contain null trajectories; accepted joint outputs, if any, pass continuous clearance."
+  ],
+  "unit_tests_passed": 76,
+  "hard_batch_cache_validation": "hard_batch_cache_validation.json",
+  "public_cli_smoke_methods": [
+    "gnn_cp_autodiff",
+    "gnn_cp_spsa",
+    "simple",
+    "soft_degree"
+  ]
+}

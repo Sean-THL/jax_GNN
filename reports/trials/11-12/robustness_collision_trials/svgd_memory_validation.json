@@ -1,0 +1,10 @@
+{
+  "particles": 100,
+  "steps": 320,
+  "robots": 50,
+  "seconds": 0.28748136699869065,
+  "peak_process_rss_mib": 386.265625,
+  "old_difference_and_square_temporary_gib": 4.76837158203125,
+  "new_largest_difference_and_square_temporary_mib": 48.33984375,
+  "reference_tests": "Row-wise SVGD direction agrees with full-tensor reference, including near-duplicate offset particles."
+}
